@@ -1,0 +1,61 @@
+/* Centra il box verticalmente tenendo conto dell'altezza dello schermo */
+.login-wrapper {
+    min-height: 80vh;
+  }
+  
+  /* Personalizzazione della Card del Login */
+  .login-card {
+    width: 100%;
+    max-width: 420px;
+    border-radius: 16px;
+    background-color: #ffffff;
+    transition: transform 0.3s ease;
+  }
+  
+  /* Icona animata in alto */
+  .login-icon {
+    font-size: 2.5rem;
+    display: inline-block;
+    animation: bounce 2s infinite;
+  }
+  
+  /* Dettagli per le etichette del Form */
+  .custom-label {
+    font-size: 0.9rem;
+    color: #495057;
+  }
+  
+  /* Focus personalizzato sugli Input (basta bordi blu standard!) */
+  .custom-input {
+    border-radius: 8px;
+    padding: 10px 12px;
+    border: 1px solid #ced4da;
+    transition: all 0.2s ease-in-out;
+  }
+  
+  .custom-input:focus {
+    border-color: #ffc107; /* Colore giallo del brand */
+    box-shadow: 0 0 0 0.25rem rgba(255, 193, 7, 0.15);
+    outline: none;
+  }
+  
+  /* Effetto Hover sul pulsante Accedi */
+  .btn-login {
+    border-radius: 8px;
+    transition: all 0.2s ease;
+  }
+  
+  .btn-login:hover {
+    background-color: #e0a800 !important;
+    transform: translateY(-1px);
+  }
+  
+  .link-forgot:hover {
+    color: #ffc107 !important;
+  }
+  
+  /* Animazione di rimbalzo per il pallone */
+  @keyframes bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-8px); }
+  }
