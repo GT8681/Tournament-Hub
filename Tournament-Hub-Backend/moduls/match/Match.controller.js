@@ -26,22 +26,21 @@ exports.generateCalendar = async (req, res) => {
 
 
 
-
-
 // @desc    Aggiorna il risultato di una partita
 // @route   PUT /api/matches/:matchId/score
 exports.updateMatchResult = async (req, res) => {
   try {
     const { matchId } = req.params;
-    const { scoreHome, scoreAway } = req.body;
+    // 1. 🔥 Recuperiamo anche lo status inviato dal frontend
+    const { scoreHome, scoreAway, status } = req.body;
 
     // Controlla che i voti siano numeri validi e non vuoti
     if (scoreHome === undefined || scoreAway === undefined) {
-      return res.status(400).json({ message: 'I gol di casa e trasferta sono obbligatori' });
+      return res.status(400).onSubmit({ message: 'I gol di casa e trasferta sono obbligatori' });
     }
 
-    const updatedMatch = await updateMatchResultService(matchId, scoreHome, scoreAway);
-    
+    // 2. 🔥 Passiamo lo status come terzo argomento al servizio
+    const updatedMatch = await updateMatchResultService(matchId, scoreHome, scoreAway, status);
     res.status(200).json({
       message: 'Risultato aggiornato con successo!',
       match: updatedMatch

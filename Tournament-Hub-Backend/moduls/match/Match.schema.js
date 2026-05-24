@@ -31,7 +31,7 @@ const MatchSchema = new mongoose.Schema({
   },
   round:{
     type: Number,
-    required: true
+    required: false
   },
   date: {
     type: Date,

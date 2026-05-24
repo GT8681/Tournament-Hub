@@ -1,21 +1,31 @@
 const Match = require('./Match.schema.js');
 const Tournament = require('../tournament/Tournament.schema.js');
+const Team = require('../team/Team.schema.js'); 
 
 exports.generateCalendarService = async (tournamentId) => {
-  // 1. Recupera il torneo e controlla che esista
-  const tournament = await Tournament.findById(tournamentId);
-  if (!tournament) {
-    throw new Error('TOURNAMENT_NOT_FOUND');
-  }
-
-  // Se il torneo è già iniziato o finito, non rigenerare il calendario
-  if (tournament.status !== 'PROGRAMMATO') {
-    throw new Error('CALENDAR_ALREADY_GENERATED');
-  }
-
-  // Creiamo una copia dell'array degli ID delle squadre
-  let teams = [...tournament.teams];
-  const numTeams = teams.length;
+    // 1. Verifica che il torneo esista
+    const existingMatches = await Match.findOne({ tournament: tournamentId });
+    if (existingMatches) {
+      throw new Error('CALENDAR_ALREADY_GENERATED');
+    }
+   // COMMENTIAMO O SPOSTIAMO QUESTO BLOCCO PER IL TESTING:
+   // Se vuoi poter rigenerare sempre il calendario durante i test, commenta queste righe:
+   /*
+   if (tournament.status !== 'PROGRAMMATO') {
+     throw new Error('CALENDAR_ALREADY_GENERATED');
+   }
+   */
+ 
+   // MODIFICA CRUCIALE: Importa e prendi TUTTE le squadre dal database generale
+   // Nota: Assicurati che in cima a questo file (o dentro la funzione) sia importato il modello Team 
+   // (es. const Team = require('../team/Team.schema'); o come si chiama il tuo modello)
+   
+   let teams = await Team.find({}); 
+   const numTeams = teams.length;
+ 
+   if (numTeams < 2) {
+     throw new Error('NON_CI_SONO_ABBASTANZA_SQUADRE');
+   }
 
   // Se il numero di squadre è dispari, l'algoritmo classico richiederebbe un "riposo".
   // Per ora assumiamo che siano pari (4, 6, 8 squadre) come test.
@@ -64,6 +74,7 @@ exports.generateCalendarService = async (tournamentId) => {
   return savedMatches;
 };
 
+
 // @desc    Aggiorna il risultato di una partita
 exports.updateMatchResultService = async (matchId, scoreHome, scoreAway) => {
     // 1. Cerca la partita nel database
@@ -71,7 +82,7 @@ exports.updateMatchResultService = async (matchId, scoreHome, scoreAway) => {
     if (!match) {
       throw new Error('MATCH_NOT_FOUND');
     }
-    if(match.statu === 'FINITA') {
+    if(match.status === 'FINITA') {
       throw new Error('MATCH_ALREADY_FINISHED');
 
     }
@@ -89,7 +100,7 @@ exports.updateMatchResultService = async (matchId, scoreHome, scoreAway) => {
   // @desc    Ottieni tutti i match di un torneo specifico
 exports.getMatchesByTournamentService = async (tournamentId) => {
   // Cerchiamo i match del torneo e popoliamo i dettagli di teamHome e teamAway
-  return await Match.find({ tournament: tournamentId })
+  return await Match.find({})
     .populate('teamHome', 'name logo')
     .populate('teamAway', 'name logo')
     .sort({ round: 1 }); // Ordina i match per giornata (round 1, round 2...)

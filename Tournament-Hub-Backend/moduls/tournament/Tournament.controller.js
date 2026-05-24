@@ -4,19 +4,63 @@ const { createTournamentService,
   deleteTournamentCompleteService,
   resetTournamentService }
   = require('./Tournament.service');
-
 const Tournament = require('./Tournament.schema');
 const Match = require('../match/Match.schema');
+const Team = require('../team/Team.schema'); // 🔥 Assicurati che il percorso verso il tuo Team schema sia corretto!
 
+
+// 🆕 1. PRENDERE SOLO I TORNEI DELL'UTENTE LOGGATO
+exports.getTournaments = async (req, res) => {
+  try {
+    // req.user.id viene iniettato automaticamente dal middleware di autenticazione
+    const tournaments = await Tournament.find({ userId: req.user.id }).populate('teams');
+    res.status(200).json(tournaments);
+  } catch (error) {
+    res.status(500).json({ message: 'Errore nel recupero dei tornei', error: error.message });
+  }
+};
+
+// 🆕 2. CREARE UN TORNEO ASSOCIANDOLO ALL'UTENTE
 exports.createTournament = async (req, res) => {
   try {
-    const newTournament = await createTournamentService(req.body);
+    // 1. Prendiamo il nome del torneo e l'array di stringhe (i nomi scritti a mano) dal frontend
+    const { name, teams } = req.body; 
+    
+    if (!req.user) {
+      return res.status(401).json({ message: 'Non autorizzato.' });
+    }
+    const userId = req.user.id;
+
+    // 2. 🔥 IL TRUCCO DELLE SQUADRE: Trasformiamo i nomi in veri ID di database
+    const teamIds = [];
+
+    if (teams && teams.length > 0) {
+      for (let teamName of teams) {
+        // Creiamo fisicamente la squadra nel database associandola anche all'utente
+        const newTeam = new Team({
+          name: teamName,
+          userId: userId
+        });
+        const savedTeam = await newTeam.save();
+        
+        // Salviamo l'ID generato da MongoDB nell'array dei tornei
+        teamIds.push(savedTeam._id);
+      }
+    }
+
+    // 3. Creiamo il torneo usando gli ID reali appena generati!
+    const newTournament = new Tournament({
+      name,
+      teams: teamIds, // Ora Mongoose riceve i veri ObjectId e non fallisce più il Cast!
+      userId
+    });
+
+    await newTournament.save();
+    
     res.status(201).json(newTournament);
   } catch (error) {
-    if (error.message === 'INSUFFICIENT_TEAMS') {
-      return res.status(400).json({ message: 'Un torneo richiede un minimo di 4 squadre' });
-    }
-    res.status(500).json({ message: 'Errore del server durante la creazione del torneo', error: error.message });
+    console.error("Errore creazione torneo:", error);
+    res.status(400).json({ message: 'Errore nella creazione del torneo', error: error.message });
   }
 };
 

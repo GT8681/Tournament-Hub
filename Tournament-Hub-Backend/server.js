@@ -1,6 +1,7 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
+
 const connectDB = require('./config/db'); 
 
 // Importa le rotte
@@ -10,7 +11,8 @@ const matchRoutes = require('./moduls/match/Match.route');
 const authRoutes = require('./moduls/routes/auth.js');
 
 // Configura dotenv e connessione al database
-dotenv.config();
+
+
 connectDB();
 
 const app = express();

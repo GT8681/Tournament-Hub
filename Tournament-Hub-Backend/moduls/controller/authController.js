@@ -1,7 +1,7 @@
 const User = require('../user/User.schema');
 const jwt = require('jsonwebtoken');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'super_segreto_scout_123';
+const JWT_SECRET = process.env.JWT_SECRET;
 
 // 1. LOGICA DI REGISTRAZIONE
 exports.register = async (req, res) => {

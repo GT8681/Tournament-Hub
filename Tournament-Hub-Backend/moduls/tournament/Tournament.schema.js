@@ -4,6 +4,7 @@ const TournamentSchema = new mongoose.Schema({
   name: {
     type: String,
     required: [true, 'Il nome del torneo è obbligatorio'],
+    unique: true,
     trim: true
   },
   status: {
@@ -14,7 +15,12 @@ const TournamentSchema = new mongoose.Schema({
   teams: [{
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Team'
-  }]
+  }],
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }
 }, { timestamps: true });
 
 module.exports = mongoose.model('Tournament', TournamentSchema);
