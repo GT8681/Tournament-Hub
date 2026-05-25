@@ -1,26 +1,48 @@
 const { generateCalendarService, updateMatchResultService,getMatchesByTournamentService} = require('../match/Match.service.js');
+const Match = require('./Match.schema');
+const Tournament = require('../tournament/Tournament.schema');
+
+
 
 // @desc    Genera il calendario delle partite per un torneo e lo avvia
 // @route   POST /api/matches/generate/:tournamentId
+
 exports.generateCalendar = async (req, res) => {
   try {
     const { tournamentId } = req.params;
-    
-    const matches = await generateCalendarService(tournamentId);
-    
-    res.status(201).json({
-      message: 'Calendario generato con successo. Il torneo è ora IN CORSO!',
-      count: matches.length,
-      matches
+    await Match.deleteMany({ tournament: tournamentId });
+    const tournament = await Tournament.findById(tournamentId);
+    if (!tournament || !tournament.teams || tournament.teams.length === 0) {
+      return res.status(404).json({ message: "Torneo non trovato o senza squadre iscritte." });
+    }
+
+    const teams = tournament.teams;
+    const generatedMatches = [];
+  
+    for (let i = 0; i < teams.length; i++) {
+      for (let j = i + 1; j < teams.length; j++) {
+        const newMatch = new Match({
+          tournament: tournamentId,
+          teamHome: teams[i],
+          teamAway: teams[j],
+          status: 'DA_GIOCARE',
+          scoreHome: 0,
+          scoreAway: 0
+        });
+        generatedMatches.push(await newMatch.save());
+      }
+    }
+    const populatedMatches = await Match.find({ tournament: tournamentId })
+      .populate('teamHome', 'name')
+      .populate('teamAway', 'name');
+
+    res.status(201).json({ 
+      message: "Calendario creato con successo!", 
+      matches: populatedMatches 
     });
   } catch (error) {
-    if (error.message === 'TOURNAMENT_NOT_FOUND') {
-      return res.status(404).json({ message: 'Torneo non trovato' });
-    }
-    if (error.message === 'CALENDAR_ALREADY_GENERATED') {
-      return res.status(400).json({ message: 'Il calendario di questo torneo è già stato generato o il torneo è già attivo' });
-    }
-    res.status(500).json({ message: 'Errore del server durante la generazione del calendario', error: error.message });
+    console.error("Errore generazione calendario:", error);
+    res.status(500).json({ message: "Errore durante la generazione", error: error.message });
   }
 };
 
@@ -31,41 +53,45 @@ exports.generateCalendar = async (req, res) => {
 exports.updateMatchResult = async (req, res) => {
   try {
     const { matchId } = req.params;
-    // 1. 🔥 Recuperiamo anche lo status inviato dal frontend
     const { scoreHome, scoreAway, status } = req.body;
 
-    // Controlla che i voti siano numeri validi e non vuoti
-    if (scoreHome === undefined || scoreAway === undefined) {
-      return res.status(400).onSubmit({ message: 'I gol di casa e trasferta sono obbligatori' });
+    // Aggiorna il match usando l'ID
+    const updatedMatch = await Match.findByIdAndUpdate(
+      matchId,
+      { scoreHome, scoreAway, status },
+      { new: true } // 👈 Questo parametro serve a restituire il documento modificato
+    );
+
+    if (!updatedMatch) {
+      return res.status(404).json({ message: "Match non trovato" });
     }
 
-    // 2. 🔥 Passiamo lo status come terzo argomento al servizio
-    const updatedMatch = await updateMatchResultService(matchId, scoreHome, scoreAway, status);
-    res.status(200).json({
-      message: 'Risultato aggiornato con successo!',
-      match: updatedMatch
-    });
+    res.status(200).json({ message: "Risultato aggiornato!", match: updatedMatch });
   } catch (error) {
-    if (error.message === 'MATCH_NOT_FOUND') {
-      return res.status(404).json({ message: 'Partita non trovata' });
-    }
-    if (error.message === 'MATCH_ALREADY_FINISHED') {
-      return res.status(400).json({ message: 'Il risultato di questa partita è già stato aggiornato e la partita è finita' });
-    }
-    res.status(500).json({ message: 'Errore del server durante l\'aggiornamento del match', error: error.message });
+    res.status(500).json({ message: "Errore durante l'aggiornamento", error: error.message });
   }
-}
+};
 
 
-// @desc    Ottieni i match di un torneo
-// @route   GET /api/matches/tournament/:tournamentId
+
 exports.getMatchesByTournament = async (req, res) => {
   try {
+    // 1. Prendi il tournamentId dai parametri dell'URL (/api/matches/tournament/:tournamentId)
     const { tournamentId } = req.params;
-    const matches = await getMatchesByTournamentService(tournamentId);
-    
+
+    // 2. 🔥 LA QUERY CORRETTA: Filtra solo i match di questo torneo e popola i dati dei team
+    const matches = await Match.find({ tournament: tournamentId })
+      .populate('teamHome','name')
+      .populate('teamAway','name')
+      .exec();
+
+    // 3. Rispondi al frontend con l'array filtrato
     res.status(200).json(matches);
   } catch (error) {
-    res.status(500).json({ message: 'Errore durante il recupero dei match', error: error.message });
+    console.error("Errore recupero match filtrati:", error);
+    res.status(500).json({ 
+      message: "Errore durante il recupero dei match", 
+      error: error.message 
+    });
   }
 };

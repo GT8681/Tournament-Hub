@@ -20,7 +20,6 @@ import {
     updateMatchResult,
     createTournament,
     createTeam,
-    // Assicurati di avere questa rotta in api.js per prendere i tornei dell'utente
     getTournaments
 } from '../services/api';
 
@@ -54,6 +53,39 @@ const Dashboard = () => {
     const [inputScoreHome, setInputScoreHome] = useState(0);
     const [inputScoreAway, setInputScoreAway] = useState(0);
 
+
+
+    useEffect(() => {
+        // Se non c'è un torneo selezionato, non fare nulla
+        if (!tournamentId) return;
+
+        const loadDashboardData = async () => {
+            try {
+                setLoading(true);
+                setError('');
+
+                // Carichiamo tutto in parallelo in un colpo solo per massima fluidità
+                await Promise.all([
+                    fetchTournamentData('teams'),
+                    fetchTournamentData('matches'),
+                    fetchTournamentData('standings')
+                ]);
+
+            } catch (err) {
+                console.error("Errore nel caricamento iniziale:", err);
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadDashboardData();
+
+        // 👈 IMPORTANTE: Gira SOLO quando cambia il torneo, non quando aggiorni i gol!
+    }, [tournamentId]);
+
+
+
+
     // Aggiunge la squadra scritta alla lista locale
     const handleAddTeamToList = (e) => {
         e.preventDefault(); // Impedisce al form di ricaricare la pagina
@@ -65,13 +97,13 @@ const Dashboard = () => {
         setSingleTeamName('');
     };
 
+
+
+
     // Se sbagli a scrivere, ti permette di cancellare una squadra dalla lista cliccando su una "X"
     const handleRemoveTeamFromList = (indexToRemove) => {
         setLocalTeams(localTeams.filter((_, index) => index !== indexToRemove));
     };
-
-
-
 
 
 
@@ -108,6 +140,8 @@ const Dashboard = () => {
 
 
 
+
+
     // ==========================================
     // CARICAMENTO INIZIALE: TORNEI DELL'UTENTE
     // ==========================================
@@ -125,6 +159,9 @@ const Dashboard = () => {
         }
     };
 
+
+
+
     // Carica anche tutte le squadre generali per i controlli di validazione
     const loadGlobalTeams = async () => {
         try {
@@ -136,10 +173,15 @@ const Dashboard = () => {
         }
     };
 
+
+
     useEffect(() => {
         loadUserTournaments();
         loadGlobalTeams();
     }, []);
+
+
+
 
     // ==========================================
     // REPERIMENTO DATI DEL TORNEO SELEZIONATO
@@ -154,8 +196,18 @@ const Dashboard = () => {
                 const dataArray = Array.isArray(response.data) ? response.data : (response.data.teams || response.data.data || []);
                 setTeams(dataArray);
             } else if (section === 'matches') {
+                // Usiamo la funzione GET per leggere, non quella per creare!
                 const response = await getMatches(tournamentId);
-                const dataArray = Array.isArray(response.data) ? response.data : (response.data.matches || response.data.data || []);
+                console.log("Dati match ricevuti dal backend:", response.data);
+
+                let dataArray = [];
+                if (Array.isArray(response.data)) {
+                    dataArray = response.data;
+                } else if (response.data && Array.isArray(response.data.matches)) {
+                    dataArray = response.data.matches;
+                } else if (response.data && Array.isArray(response.data.data)) {
+                    dataArray = response.data.data;
+                }
                 setMatches(dataArray);
             } else if (section === 'standings') {
                 const response = await getStandings(tournamentId);
@@ -169,12 +221,12 @@ const Dashboard = () => {
             setLoading(false);
         }
     };
-
     useEffect(() => {
         if (tournamentId) {
+            // Carica solo la sezione attualmente attiva per il nuovo torneo
             fetchTournamentData(activeSection);
         }
-    }, [activeSection, tournamentId]);
+    }, [tournamentId]); // 👈 Ascolta SOLO il cambio del torneo, non la sezione!
 
     // ==========================================
     // AZIONI GESTIONALI
@@ -183,18 +235,21 @@ const Dashboard = () => {
         if (!tournamentId) return;
         setLoading(true);
         setError('');
+        setMatches([]); // Pulisce la lista dei match per mostrare lo spinner durante la generazione
         try {
             await generateCalendar(tournamentId);
             alert("🎉 Calendario generato con successo!");
+
+            // Cambiando solo la sezione, lo useEffect si accorgerà della modifica 
+            // e chiamerà AUTOMATICAMENTE fetchTournamentData('matches') una volta sola.
             setActiveSection('matches');
-            await fetchTournamentData('matches');
+
         } catch (err) {
-            setError(err.response?.data?.message || "Il calendario è già stato generato per questo torneo.");
+            setError(err.response?.data?.message || "Il calendario è già stato generato");
         } finally {
             setLoading(false);
         }
     };
-
     const openEditModal = (match) => {
         setSelectedMatch(match);
         setInputScoreHome(match.scoreHome || 0);
@@ -202,14 +257,19 @@ const Dashboard = () => {
         setShowModal(true);
     };
 
+
+
+
     const handleSaveResult = async () => {
         if (!selectedMatch) return;
         setShowModal(false);
         setLoading(true);
         try {
+
             await updateMatchResult(selectedMatch._id, {
                 scoreHome: Number(inputScoreHome),
-                scoreAway: Number(inputScoreAway)
+                scoreAway: Number(inputScoreAway),
+                status: 'FINITA'
             });
             await fetchTournamentData('matches');
             await fetchTournamentData('standings');
@@ -220,6 +280,9 @@ const Dashboard = () => {
             setLoading(false);
         }
     };
+
+
+
 
     return (
         <div className="container py-5" style={{ minHeight: '85vh' }}>
@@ -392,8 +455,8 @@ const Dashboard = () => {
                     {/* Sotto-Navigazione Interna */}
                     <Row className="g-2 mb-4">
                         <Col><Button variant={activeSection === 'teams' ? 'dark' : 'outline-dark'} className="w-100 fw-bold py-2" onClick={() => setActiveSection('teams')}>🏃‍♂️ Club Iscritti</Button></Col>
-                        <Col><Button variant={activeSection === 'matches' ? 'dark' : 'outline-dark'} className="w-100 fw-bold py-2" onClick={() => setActiveSection('matches')}>📅 Calendario Match</Button></Col>
-                        <Col><Button variant={activeSection === 'standings' ? 'dark' : 'outline-dark'} className="w-100 fw-bold py-2" onClick={() => setActiveSection('standings')}>📊 Classifica Live</Button></Col>
+                        <Col><Button variant={activeSection === 'matches' ? 'dark' : 'outline-dark'} className="w-100 fw-bold py-2" onClick={() => { setActiveSection('matches'); fetchTournamentData('matches'); }}>📅 Calendario Match</Button></Col>
+                        <Col><Button variant={activeSection === 'standings' ? 'dark' : 'outline-dark'} className="w-100 fw-bold py-2" onClick={() => { setActiveSection('standings'); fetchTournamentData('standings') }}>📊 Classifica Live</Button></Col>
                     </Row>
 
                     {error && <Alert variant="danger" className="fw-bold text-center mb-4">{error}</Alert>}
@@ -443,12 +506,26 @@ const Dashboard = () => {
                                             <ListGroup variant="flush" className="rounded shadow-sm overflow-hidden">
                                                 {matches.map((match) => (
                                                     <ListGroup.Item key={match._id} className="d-flex justify-content-between align-items-center py-3 px-4 bg-white border-bottom">
-                                                        <div className="fw-bold text-end text-dark" style={{ width: '35%' }}>{match.teamHome?.name}</div>
-                                                        <Badge bg={match.status === 'FINITA' ? 'dark' : 'secondary'} className="fs-6 px-3 py-2" style={{ minWidth: '85px' }}>
+
+                                                        {/* 1. Squadra in Casa */}
+                                                        <div className="fw-bold text-end text-dark" style={{ width: '35%' }}>
+                                                            {match.teamHome?.name || match.teamHome?.nome || (typeof match.teamHome === 'string' ? match.teamHome : 'Squadra')}
+                                                        </div>
+
+                                                        {/* Badge del Risultato / VS (Lascialo così com'è) */}
+                                                        <Badge bg={match.status === 'FINITA' ? 'dark' : 'secondary'} className="mx-2">
                                                             {match.status === 'FINITA' ? `${match.scoreHome} - ${match.scoreAway}` : 'VS'}
                                                         </Badge>
-                                                        <div className="fw-bold text-start text-dark" style={{ width: '35%' }}>{match.teamAway?.name}</div>
-                                                        <Button variant="light" size="sm" className="border shadow-sm" onClick={() => openEditModal(match)}>✏️</Button>
+
+                                                        {/* 2. Squadra Ospite */}
+                                                        <div className="fw-bold text-start text-dark" style={{ width: '35%' }}>
+                                                            {match.teamAway?.name || match.teamAway?.nome || (typeof match.teamAway === 'string' ? match.teamAway : 'Squadra')}
+                                                        </div>
+
+                                                        {/* Bottone per modificare il risultato */}
+                                                        <Button variant="light" size="sm" className="border shadow-sm" onClick={() => openEditModal(match)}>
+                                                            ✏️
+                                                        </Button>
                                                     </ListGroup.Item>
                                                 ))}
                                             </ListGroup>
@@ -528,3 +605,6 @@ const Dashboard = () => {
 };
 
 export default Dashboard;
+
+
+

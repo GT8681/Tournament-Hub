@@ -24,12 +24,12 @@ exports.getTournaments = async (req, res) => {
 exports.createTournament = async (req, res) => {
   try {
     // 1. Prendiamo il nome del torneo e l'array di stringhe (i nomi scritti a mano) dal frontend
-    const { name, teams } = req.body; 
-    
+    const { name, teams } = req.body;
+    const userId = req.user.id;
     if (!req.user) {
       return res.status(401).json({ message: 'Non autorizzato.' });
     }
-    const userId = req.user.id;
+
 
     // 2. 🔥 IL TRUCCO DELLE SQUADRE: Trasformiamo i nomi in veri ID di database
     const teamIds = [];
@@ -42,7 +42,7 @@ exports.createTournament = async (req, res) => {
           userId: userId
         });
         const savedTeam = await newTeam.save();
-        
+
         // Salviamo l'ID generato da MongoDB nell'array dei tornei
         teamIds.push(savedTeam._id);
       }
@@ -56,7 +56,7 @@ exports.createTournament = async (req, res) => {
     });
 
     await newTournament.save();
-    
+
     res.status(201).json(newTournament);
   } catch (error) {
     console.error("Errore creazione torneo:", error);
@@ -64,15 +64,24 @@ exports.createTournament = async (req, res) => {
   }
 };
 
+
+
+
+
 exports.getTournamentById = async (req, res) => {
   try {
-    const tournament = await getTournamentByIdService(req.params.id);
+    const { id } = req.params;
+
+    // 🔥 Recupera il torneo e sviluppa l'array di ID in oggetti squadra reali
+    const tournament = await Tournament.findById(id).populate('teams');
+
+    if (!tournament) {
+      return res.status(404).json({ message: "Torneo non trovato" });
+    }
+
     res.status(200).json(tournament);
   } catch (error) {
-    if (error.message === 'TOURNAMENT_NOT_FOUND') {
-      return res.status(404).json({ message: 'Torneo non trovato' });
-    }
-    res.status(500).json({ message: 'Errore del server durante il recupero del torneo', error: error.message });
+    res.status(500).json({ message: error.message });
   }
 };
 
