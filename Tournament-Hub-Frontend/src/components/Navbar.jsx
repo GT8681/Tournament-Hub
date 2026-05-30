@@ -1,10 +1,10 @@
 import React from 'react';
 import { Navbar as BootNavbar, Container, Nav, Button } from 'react-bootstrap';
-import { Link, useNavigate, useLocation } from 'react-router-dom'; // 👈 Aggiunto useLocation qui
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 const Navbar = ({ user, onLogout }) => {
   const navigate = useNavigate();
-  const location = useLocation(); // 👈 Leggiamo la posizione attuale della rotta
+  const location = useLocation();
 
   const handleLogoutClick = () => {
     onLogout(); // Svuota lo stato globale e il localStorage
@@ -21,14 +21,15 @@ const Navbar = ({ user, onLogout }) => {
         <BootNavbar.Collapse id="navbar-tournament">
           <Nav className="ms-auto align-items-center gap-3">
             
-            {/* 🔥 CONTROLLO UX: Il link Home sparisce se sei già sulla Home ('/') */}
+            {/* Il link Home sparisce se sei già sulla Home */}
             {location.pathname !== '/' && (
               <Nav.Link as={Link} to="/">Home</Nav.Link>
             )}
             
-            {/* Se l'utente è loggato mostriamo i link privati e il Logout */}
-            {user ? (
+            {/* Mostriamo la Dashboard e il Logout SOLO se l'utente è loggato */}
+            {user && (
               <>
+                <Nav.Link as={Link} to="/dashboard">Dashboard</Nav.Link>
                 <span className="text-secondary small">
                   Ciao, <strong className="text-warning">{user.name}</strong>
                 </span>
@@ -36,12 +37,8 @@ const Navbar = ({ user, onLogout }) => {
                   Esci
                 </Button>
               </>
-            ) : (
-              // Se non è loggato mostriamo il classico tasto Accedi
-              <Nav.Link as={Link} to="/login" className="btn btn-warning text-dark fw-bold px-3 btn-sm">
-                Accedi
-              </Nav.Link>
             )}
+            
           </Nav>
         </BootNavbar.Collapse>
       </Container>
