@@ -51,6 +51,25 @@ export const resetTournament = (tournamentId) => API.post(`/tournaments/${tourna
 export const getTournaments = () => API.get('/tournaments'); // Legge i tornei dell'utente loggato
 
 
+export const getTeamsByTournamentService = async (tournamentId) => {
+  // Fa la chiamata alla rotta specifica passando l'ID del torneo attivo
+  return await API.get(`/teams/tournament/${tournamentId}`); 
+};
+
+// Nel tuo api.js del frontend
+export const createTournamentService = async (tournamentData) => {
+  // Passiamo direttamente l'intero oggetto che contiene { name, localTeams }
+  return await API.post('/tournaments', tournamentData); 
+};
+
+// Nel tuo api.js del frontend
+export const deleteTournamentService = async (tournamentId) => {
+  return await API.delete(`/tournaments/${tournamentId}`); 
+};
+
+
+
+
 // ==========================================
 // 🏃‍♂️ 3. ROTTE SQUADRE (teamRoutes)
 // ==========================================

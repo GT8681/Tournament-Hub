@@ -6,7 +6,8 @@ const {
   getTournamentStandings,
   resetTournament,
   deleteTournamentComplete,
-  getTournaments
+  getTournaments,
+  deleteTournament
 } = require('./Tournament.controller.js'); // Verifica il percorso esatto
 const  protect  = require('../middleware/auth.js');
 
@@ -21,15 +22,15 @@ router.post('/:tournamentId/reset', resetTournament);
 
 // 4. Rotta per recuperare un singolo torneo (GET /api/tournaments/:id)
 router.get('/:id', getTournamentById);
-
-// 5. Rotta per eliminare un torneo (DELETE /api/tournaments/:id) - SCRITTA ESPLICITA
-router.delete('/:id', deleteTournamentComplete);
-
 router.route('/')
   .get(protect, getTournaments)      // Solo gli utenti loggati vedono i LORO tornei
   .post(protect, createTournament);  // Solo gli utenti loggati possono creare un torneo
 
+  router.delete('/:tournamentId',protect,deleteTournament);
+
 module.exports = router;
+
+
 
 
 

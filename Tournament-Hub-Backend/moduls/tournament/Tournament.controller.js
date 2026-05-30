@@ -1,9 +1,5 @@
-const { createTournamentService,
-  getTournamentByIdService,
-  getStandingsService,
-  deleteTournamentCompleteService,
-  resetTournamentService }
-  = require('./Tournament.service');
+const {getStandingsService}= require('./Tournament.service');
+
 const Tournament = require('./Tournament.schema');
 const Match = require('../match/Match.schema');
 const Team = require('../team/Team.schema'); // 🔥 Assicurati che il percorso verso il tuo Team schema sia corretto!
@@ -20,52 +16,53 @@ exports.getTournaments = async (req, res) => {
   }
 };
 
-// 🆕 2. CREARE UN TORNEO ASSOCIANDOLO ALL'UTENTE
 exports.createTournament = async (req, res) => {
   try {
-    // 1. Prendiamo il nome del torneo e l'array di stringhe (i nomi scritti a mano) dal frontend
-    const { name, teams } = req.body;
+    const { name, localTeams } = req.body;
     const userId = req.user.id;
-    if (!req.user) {
-      return res.status(401).json({ message: 'Non autorizzato.' });
+
+    // 🔥 SICUREZZA 1: Se localTeams non esiste o non è un array, lo trasformiamo in un array vuoto
+    // Questo trucco impedisce l'errore "is not iterable"!
+    const teamsArray = Array.isArray(localTeams) ? localTeams : [];
+
+    if (teamsArray.length === 0) {
+      return res.status(400).json({ message: "Inserisci almeno due squadre per creare il torneo!" });
     }
 
-
-    // 2. 🔥 IL TRUCCO DELLE SQUADRE: Trasformiamo i nomi in veri ID di database
-    const teamIds = [];
-
-    if (teams && teams.length > 0) {
-      for (let teamName of teams) {
-        // Creiamo fisicamente la squadra nel database associandola anche all'utente
-        const newTeam = new Team({
-          name: teamName,
-          userId: userId
-        });
-        const savedTeam = await newTeam.save();
-
-        // Salviamo l'ID generato da MongoDB nell'array dei tornei
-        teamIds.push(savedTeam._id);
-      }
-    }
-
-    // 3. Creiamo il torneo usando gli ID reali appena generati!
+    // Creiamo il torneo
     const newTournament = new Tournament({
       name,
-      teams: teamIds, // Ora Mongoose riceve i veri ObjectId e non fallisce più il Cast!
-      userId
+      userId,
+      teams: []
     });
+    const savedTournament = await newTournament.save();
 
-    await newTournament.save();
+    const teamIds = [];
 
-    res.status(201).json(newTournament);
+    // 🔥 Usiamo teamsArray (che siamo sicuri essere un array ciclabile)
+    for (let teamName of teamsArray) {
+      if (!teamName) continue; // Salta se c'è un valore vuoto
+      
+      const newTeam = new Team({
+        name: teamName.trim(), // Rimuove spazi vuoti inutili
+        tournamentId: savedTournament._id,
+        userId: userId
+      });
+      const savedTeam = await newTeam.save();
+      teamIds.push(savedTeam._id);
+    }
+
+    // Aggiorniamo il torneo con gli ID delle squadre collegate
+    savedTournament.teams = teamIds;
+    await savedTournament.save();
+
+    res.status(201).json({ message: "Torneo creato con successo!", tournament: savedTournament });
+
   } catch (error) {
     console.error("Errore creazione torneo:", error);
-    res.status(400).json({ message: 'Errore nella creazione del torneo', error: error.message });
+    res.status(500).json({ message: "Errore durante la creazione", error: error.message });
   }
 };
-
-
-
 
 
 exports.getTournamentById = async (req, res) => {
@@ -120,45 +117,27 @@ exports.resetTournament = async (req, res) => {
 };
 
 
-// @desc    Elimina un torneo e tutti i suoi match (Versione di Test Diretta)
-exports.deleteTournamentComplete = async (req, res) => {
+exports.deleteTournament = async (req, res) => {
   try {
-    // 1. Intercettiamo l'ID in ogni modo possibile per sicurezza
-    const tournamentId = req.params.id || req.params.tournamentId;
+    const { tournamentId } = req.params;
+    const userId = req.user.id; // Per sicurezza, cancelliamo solo se il torneo è dell'utente loggato
 
-
-    if (!tournamentId) {
-      return res.status(400).json({ message: "ID del torneo mancante nei parametri della richiesta" });
+    // 1. Verifichiamo che il torneo esista e appartenga a questo utente
+    const tournament = await Tournament.findOne({ _id: tournamentId, userId });
+    if (!tournament) {
+      return res.status(404).json({ message: "Torneo non trovato o non autorizzato." });
     }
 
-    const cleanId = tournamentId.trim();
+    // 2. 🔥 PULIZIA A CASCATA: Elimina i match e i team collegati a questo torneo
+    await Match.deleteMany({ tournament: tournamentId });
+    await Team.deleteMany({ tournamentId: tournamentId });
 
-    // 2. Proviamo a cancellare direttamente i match
-    const matchDeleteResult = await Match.deleteMany({ tournament: cleanId });
+    // 3. Elimina il torneo vero e proprio
+    await Tournament.findByIdAndDelete(tournamentId);
 
-
-    // 3. Proviamo a cancellare direttamente il torneo
-    const deletedTournament = await Tournament.findByIdAndDelete(cleanId);
-
-
-    // 4. Se il database restituisce null, significa che quell'ID non esisteva nel DB
-    if (!deletedTournament) {
-
-      return res.status(404).json({ message: "Torneo non trovato nel database" });
-    }
-
-
-    return res.status(200).json({
-      message: 'Torneo e match associati eliminati con successo direttamente dal controller',
-      deletedTournament
-    });
-
+    res.status(200).json({ message: "Torneo e tutti i dati associati eliminati con successo!" });
   } catch (error) {
-    console.error("💥 CRASH NEL CONTROLLER DIRETTO:", error);
-    return res.status(500).json({
-      message: "Errore interno durante la cancellazione",
-      error: error.message
-    });
+    console.error("Errore cancellazione torneo:", error);
+    res.status(500).json({ message: "Errore durante l'eliminazione", error: error.message });
   }
 };
-

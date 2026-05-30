@@ -7,9 +7,18 @@ import Dashboard from './pages/Dashboard';
 import Register from './pages/Register';
 
 function App() {
-  const [user, setUser] = useState(null);
+  // 🏆 STATO UNICO E REALE: Conterrà i tornei scaricati dal database via API
+  const [tournaments, setTournaments] = useState([]);
 
-  // Al caricamento dell'app, controlliamo se c'è già un utente salvato nel browser
+  // Funzione per aggiornare lo stato globale dei tornei (usata dalla Dashboard dopo le chiamate API)
+  const handleTournamentsUpdate = (updatedTournaments) => {
+    setTournaments(updatedTournaments);
+  };
+
+  // Stato dell'utente con controllo iniziale su localStorage
+  const [user, setUser] = useState(localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null);
+
+  // Al caricamento dell'app, sincronizziamo l'utente se presente nel browser
   useEffect(() => {
     const savedUser = localStorage.getItem('user');
     if (savedUser) {
@@ -31,22 +40,28 @@ function App() {
         <Navbar user={user} onLogout={handleLogout} />
 
         <Routes>
-          <Route path="/" element={<Home />} />
+          {/* 🏠 HOME: Riceve la lista dei tornei reali da mostrare in vetrina */}
+          <Route
+            path="/"
+            element={<Home tournaments={tournaments} />}
+          />
 
-          {/* Se l'utente è già loggato, lo reindirizziamo direttamente alla Dashboard */}
+          {/* 🏟️ DASHBOARD: Passiamo la funzione onTournamentsUpdate per aggiornare lo stato globale con i dati del DB */}
+          <Route
+            path="/dashboard"
+            element={user ? <Dashboard onTournamentsUpdate={handleTournamentsUpdate} /> : <Navigate to="/login" />} 
+          />
+
+          {/* Se l'utente è già loggato, lo reindirizziamo direttamente alla Dashboard se prova ad andare su /login */}
           <Route
             path="/login"
             element={!user ? <Login onLoginSuccess={setUser} /> : <Navigate to="/dashboard" />}
           />
 
+          {/* Se l'utente è già loggato, lo reindirizziamo direttamente alla Dashboard se prova ad andare su /register */}
           <Route
             path="/register"
-            element={!user ? <Register /> : <Navigate to="/dashboard" />} />
-
-          {/* ROTTA PROTETTA: Se non è loggato, viene rispedito al Login */}
-          <Route
-            path="/dashboard"
-            element={user ? <Dashboard /> : <Navigate to="/login" />}
+            element={!user ? <Register /> : <Navigate to="/dashboard" />}
           />
         </Routes>
       </div>
@@ -55,4 +70,3 @@ function App() {
 }
 
 export default App;
-
