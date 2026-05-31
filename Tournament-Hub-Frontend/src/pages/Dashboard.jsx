@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { useLocation, useParams } from 'react-router-dom';
+
 import {
     Button,
     Card,
@@ -23,10 +25,16 @@ import {
     deleteTournamentService
 } from '../services/api';
 
-const Dashboard = ({ onTournamentsUpdate }) => {
+const Dashboard = () => {
+    const { id } = useParams();
+    const location = useLocation();
+    const currentUser = JSON.parse(localStorage.getItem('user'));
+    const currentUserId = currentUser?._id || currentUser?.id;
+
     // ==========================================
     // STATI GESTIONE HUB (MULTI-TORNEO)
     // ==========================================
+    // 🎯 STATO UNICO E PULITO: Gestito solo localmente per non rompere la Home pubblica
     const [myTournaments, setMyTournaments] = useState([]);
     const [showCreateForm, setShowCreateForm] = useState(false);
     const [tournamentId, setTournamentId] = useState('');
@@ -52,6 +60,22 @@ const Dashboard = ({ onTournamentsUpdate }) => {
     const [inputScoreHome, setInputScoreHome] = useState(0);
     const [inputScoreAway, setInputScoreAway] = useState(0);
 
+    useEffect(() => {
+        // Controlliamo se siamo arrivati dalla Home con un torneo nello stato della navigazione
+        if (location.state && location.state.tournament) {
+            const t = location.state.tournament;
+
+            setTournamentId(t._id);
+            setTournamentName(t.name);
+            setActiveSection('teams');
+        }
+        return () => {
+            if (window.history.state && window.history.state.usr) {
+                window.history.replaceState({}, document.title);
+            }
+        };
+    }, [location.state]);
+
     // ==========================================
     // CARICAMENTO INIZIALE: TORNEI NELL'HUB
     // ==========================================
@@ -60,12 +84,17 @@ const Dashboard = ({ onTournamentsUpdate }) => {
         try {
             const response = await getTournaments();
             const dataArray = Array.isArray(response.data) ? response.data : (response.data.tournaments || response.data.data || []);
-            setMyTournaments(dataArray);
             
-            // 🔄 CONDIVISIONE CON LA HOME: Passiamo i tornei veri ad App.jsx così la Home li vede!
-            if (onTournamentsUpdate) {
-                onTournamentsUpdate(dataArray);
-            }
+            const filtered = dataArray.filter(t => {
+                const creatorId = t.userId || t.owner || t.creator;
+                if (!creatorId || !currentUserId) return false;
+                const cleanCreatorId = creatorId._id || creatorId;
+                return cleanCreatorId.toString() === currentUserId.toString();
+            });
+
+            // 🔥 FORZIAMO REACT A VEDERE UN NUOVO ARRAY IN MEMORIA
+            setMyTournaments([...filtered]);
+            
         } catch (err) {
             console.error("Errore nel caricamento dei tornei:", err);
             setError("Impossibile caricare l'elenco dei tuoi tornei.");
@@ -131,6 +160,9 @@ const Dashboard = ({ onTournamentsUpdate }) => {
         setLocalTeams(localTeams.filter((_, index) => index !== indexToRemove));
     };
 
+
+
+
     const handleFormSubmit = async (e) => {
         e.preventDefault();
 
@@ -140,27 +172,47 @@ const Dashboard = ({ onTournamentsUpdate }) => {
         }
 
         try {
+            setLoading(true);
             const tournamentData = {
                 name: tournamentName,
                 localTeams: localTeams
             };
-
+            
             const response = await createTournament(tournamentData);
-
+            
             if (response.status === 201) {
-                alert("🏆 Torneo creato con successo con le sue squadre dedicate!");
+                alert("🏆 Torneo creato con successo!");
+
+                // 🚀 VELOCISSIMO: Prendiamo i dati che abbiamo APPENA inviato 
+                // e li schiaffiamo dentro lo stato locale con un ID finto o quello del server
+                const nuovoTorneoCreato = response.data?.tournament || response.data?.data || response.data;
+                
+                const torneoMock = {
+                    _id: nuovoTorneoCreato?._id || Date.now().toString(), // Se il server non dà l'id, lo inventiamo per la lista
+                    name: tournamentName,
+                    teams: localTeams,
+                    status: 'PROGRAMMATO',
+                    userId: currentUserId
+                };
+
+                // 🔥 Aggiorna lo schermo ALL'ISTANTE senza ricaricare dal server
+                setMyTournaments(prev => [torneoMock, ...prev]);
+
+                // Reset campi
                 setTournamentName('');
                 setLocalTeams([]);
                 setShowCreateForm(false);
-
-                // Ricarica e aggiorna l'hub globale
-                await loadUserTournaments();
+                setTournamentId(''); 
             }
         } catch (error) {
-            console.error("❌ Errore durante l'invio del torneo:", error);
-            alert("Errore durante la creazione: " + (error.response?.data?.message || error.message));
+            console.error("❌ Errore durante la creazione:", error);
+            alert("Errore: " + (error.response?.data?.message || error.message));
+        } finally {
+            setLoading(false);
         }
     };
+
+
 
     // ==========================================
     // GESTIONE MATCH E RISULTATI
@@ -208,23 +260,40 @@ const Dashboard = ({ onTournamentsUpdate }) => {
             setLoading(false);
         }
     };
-
-    const handleDeleteTournament = async (tId, tName) => {
-        const confirmDelete = window.confirm(`⚠️ Sei sicuro di voler eliminare definitivamente il torneo "${tName}"? Verranno cancellate anche tutte le squadre e le partite associate!`);
+        const handleDeleteTournament = async (tId, tName) => {
+        const confirmDelete = window.confirm(`⚠️ Sei sicuro di voler eliminare definitivamente il torneo "${tName}"?`);
         if (!confirmDelete) return;
 
         try {
             setLoading(true);
+            
+            // 🔥 VELOCISSIMO: Lo cancelliamo dallo schermo UN MILLISECONDO PRIMA della chiamata API
+            setMyTournaments(prev => prev.filter(t => t._id !== tId));
+            setTournamentId(''); 
+
+            // Mandiamo il comando al server in background
             await deleteTournamentService(tId);
+            
             alert("🗑️ Torneo eliminato con successo!");
-            await loadUserTournaments();
+            
+            setTeams([]);
+            setMatches([]);
+            setStandings([]);
+            
         } catch (err) {
-            console.error("Errore durante l'eliminazione del torneo:", err);
-            alert("Impossibile eliminare il torneo: " + (err.response?.data?.message || err.message));
+            console.error("Errore durante l'eliminazione:", err);
+            alert("Impossibile eliminare: " + (err.response?.data?.message || err.message));
+            // Se fallisce, ricarichiamo la lista reale per rimetterlo su
+            await loadUserTournaments();
         } finally {
             setLoading(false);
         }
     };
+
+
+
+
+    
 
     return (
         <div className="container py-5" style={{ minHeight: '85vh' }}>

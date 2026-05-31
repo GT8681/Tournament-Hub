@@ -5,11 +5,13 @@ const {
   getTournamentById,
   getTournamentStandings,
   resetTournament,
-  deleteTournamentComplete,
   getTournaments,
-  deleteTournament
+  deleteTournament,
+  getPublicTournaments
 } = require('./Tournament.controller.js'); // Verifica il percorso esatto
 const  protect  = require('../middleware/auth.js');
+
+router.get('/public', getPublicTournaments);
 
 // 1. Rotta per creare un torneo (POST /api/tournaments)
 //router.post('/', createTournament);

@@ -14,22 +14,20 @@ const Navbar = ({ user, onLogout }) => {
   return (
     <BootNavbar bg="dark" variant="dark" expand="lg" className="shadow px-3">
       <Container fluid>
-      
-        
         <BootNavbar.Toggle aria-controls="navbar-tournament" />
         
         <BootNavbar.Collapse id="navbar-tournament">
           <Nav className="ms-auto align-items-center gap-3">
             
-            {/* Il link Home sparisce se sei già sulla Home */}
+            {/* 🏠 LINK HOME: Appare ovunque, MA scompare se sei già sulla Home ('/') */}
             {location.pathname !== '/' && (
-              <Nav.Link as={Link} to="/">Home</Nav.Link>
+              <Nav.Link as={Link} to="/" state={null}>Home</Nav.Link>
             )}
             
-            {/* Mostriamo la Dashboard e il Logout SOLO se l'utente è loggato */}
+          
+            {/* Se l'utente è loggato mostriamo il saluto e il tasto Esci */}
             {user && (
               <>
-                <Nav.Link as={Link} to="/dashboard">Dashboard</Nav.Link>
                 <span className="text-secondary small">
                   Ciao, <strong className="text-warning">{user.name}</strong>
                 </span>

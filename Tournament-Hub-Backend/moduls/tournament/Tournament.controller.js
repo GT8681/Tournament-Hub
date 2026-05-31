@@ -1,9 +1,29 @@
-const {getStandingsService}= require('./Tournament.service');
+const {getStandingsService,getAllPublicTournaments}= require('./Tournament.service');
 
 const Tournament = require('./Tournament.schema');
 const Match = require('../match/Match.schema');
 const Team = require('../team/Team.schema'); // 🔥 Assicurati che il percorso verso il tuo Team schema sia corretto!
 
+
+/**
+ * Gestisce la richiesta HTTP per ottenere tutti i tornei pubblici
+ */
+exports.getPublicTournaments = async (req, res) => {
+  try {
+    // Chiamiamo il service che abbiamo creato nello Step 1
+    const tournaments = await getAllPublicTournaments();
+    
+    // Rispondiamo al frontend con lo stato 200 (OK) e l'array dei tornei
+    return res.status(200).json(tournaments);
+  } catch (error) {
+    console.error("Errore nel controller getPublicTournaments:", error);
+    
+    // Rispondiamo con un errore generico del server in caso di problemi
+    return res.status(500).json({ 
+      message: "Si è verificato un errore nel recupero dei tornei pubblici." 
+    });
+  }
+};
 
 // 🆕 1. PRENDERE SOLO I TORNEI DELL'UTENTE LOGGATO
 exports.getTournaments = async (req, res) => {

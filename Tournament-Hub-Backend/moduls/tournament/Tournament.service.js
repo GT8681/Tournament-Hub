@@ -2,6 +2,15 @@ const Tournament = require('./Tournament.schema.js');
 const Match = require('../match/Match.schema.js'); 
 
 
+exports.getAllPublicTournaments = async () => {
+  try {
+    
+    return await Tournament.find().sort({ createdAt: -1 });
+  } catch (error) {
+    throw new Error("Errore nel recupero dei tornei dal database: " + error.message);
+  }
+};
+
 exports.createTournamentService = async (tournamentData) => {
   const { name, teams } = tournamentData;
 

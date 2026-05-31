@@ -67,6 +67,19 @@ export const deleteTournamentService = async (tournamentId) => {
   return await API.delete(`/tournaments/${tournamentId}`); 
 };
 
+export const getPublicTournaments = async () => {
+
+  try {
+    const response = await API.get('/tournaments/public'); // Chiamata alla rotta per i tornei pubblici
+    return response.data; // Restituisce l'array dei tornei al componente che lo chiama
+  } catch (error) {
+    console.error("Errore nel servizio api durante il recupero dei tornei pubblici:", error);
+    throw error;
+  }
+};
+
+
+
 
 
 

@@ -1,36 +1,49 @@
 import React from 'react';
 import { Container, Row, Col, Button, Card, Navbar, Badge } from 'react-bootstrap';
 import { useNavigate } from 'react-router-dom';
+import { useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 const Home = ({ tournaments = [] }) => {
     const navigate = useNavigate();
-    
+    const location = useLocation();
+
     // Controlliamo se c'è un utente loggato nel browser per gestire i bottoni
     const savedUser = localStorage.getItem('user');
     const isLoggedIn = savedUser ? true : false;
 
+
+
+    useEffect(() => {
+        // Se c'è un residuo di stato nel link, lo puliamo per evitare conflitti al prossimo giro
+        if (window.history.state && window.history.state.usr) {
+            window.history.replaceState({}, document.title);
+        }
+    }, []);
+
+
     return (
         <div className="bg-light" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: 'sans-serif' }}>
-            
+
             {/* 🌐 NAVBAR PRINCIPALE */}
-            <Navbar bg="dark" variant="dark" className="py-3 shadow-sm" style={{ borderBottom: '3px solid #0d6efd' }}>
+            <Navbar variant="dark" className="py-3 shadow-sm" style={{ borderBottom: '3px solid #0d6efd' }}>
                 <Container>
                     <Navbar.Brand className="fw-bold fs-3 d-flex align-items-center gap-2" style={{ cursor: 'pointer' }} onClick={() => navigate('/')}>
-                        ⚽ <span style={{ color: '#0d6efd' }}>TOURNAMENT</span>HUB
+                        ⚽ <span style={{ color: '#0d6efd' }}>TOURNAMENT HUB</span>
                     </Navbar.Brand>
                     <div className="d-flex gap-2">
                         {/* SWITCH NAVBAR: Se loggato mostra la plancia, altrimenti i tasti d'accesso */}
                         {isLoggedIn ? (
                             <>
-                            
-                            <Button variant="primary" className="fw-bold px-3 shadow-sm" onClick={() => navigate('/dashboard')}>
-                                Pannello di Controllo ⚙️
-                            </Button>
-                            
-                         </>
+
+                                <Button variant="primary" className="fw-bold px-3 shadow-sm" onClick={() => navigate('/dashboard')}>
+                                    DASHBOARD⚙️
+                                </Button>
+
+                            </>
                         ) : (
                             <>
-                                <Button variant="outline-light" className="fw-bold px-3" onClick={() => navigate('/login')}>
+                                <Button variant="primary" className="fw-bold px-3" onClick={() => navigate('/login')}>
                                     Accedi
                                 </Button>
                                 <Button variant="primary" className="fw-bold px-3" onClick={() => navigate('/register')}>
@@ -53,9 +66,9 @@ const Home = ({ tournaments = [] }) => {
             </div>
 
             {/* 🚀 HERO SECTION (VETRINA GENERALE) */}
-            <div 
-                className="text-white text-center d-flex align-items-center shadow" 
-                style={{ 
+            <div
+                className="text-white text-center d-flex align-items-center shadow"
+                style={{
                     background: 'linear-gradient(rgba(16, 20, 28, 0.85), rgba(24, 32, 46, 0.95)), url("https://images.unsplash.com/photo-1508098682722-e99c43a406b2?ixlib=rb-4.0.3") center/cover no-repeat',
                     padding: '90px 0',
                     borderBottom: '6px solid #0d6efd'
@@ -68,37 +81,37 @@ const Home = ({ tournaments = [] }) => {
                                 La Piattaforma per i tuoi Eventi Sportivi 🌟
                             </Badge>
                             <h1 className="display-4 fw-bold mb-3 text-white text-uppercase" style={{ letterSpacing: '-1px' }}>
-                                Organizza, Vendi e Gestisci <br/>i tuoi <span style={{ color: '#0d6efd' }}>Tornei di Calcio</span>
+                                Organizza, Vendi e Gestisci <br />i tuoi <span style={{ color: '#0d6efd' }}>Tornei di Calcio</span>
                             </h1>
                             <p className="lead opacity-95 mb-4 fs-5 text-light-50">
                                 Trasforma la gestione dei tuoi eventi sportivi. Crea gironi competitivi, automatizza la vendita delle iscrizioni per i club e offri classifiche e calendari live in tempo reale a giocatori, tifosi e osservatori.
                             </p>
-                            
+
                             <div className="d-flex justify-content-center gap-3">
                                 {/* SWITCH BOTTONE HERO PRINCIPALE */}
                                 {isLoggedIn ? (
-                                    <Button 
-                                        variant="primary" 
-                                        size="lg" 
-                                        className="fw-bold px-5 py-3 shadow-sm fs-4" 
+                                    <Button
+                                        variant="primary"
+                                        size="lg"
+                                        className="fw-bold px-5 py-3 shadow-sm fs-4"
                                         onClick={() => navigate('/dashboard')}
                                     >
                                         Ritorna ai tuoi Eventi Attivi →
                                     </Button>
                                 ) : (
                                     <div className="d-flex gap-3">
-                                        <Button 
-                                            variant="primary" 
-                                            size="lg" 
-                                            className="fw-bold px-4 py-3 shadow-sm fs-5" 
+                                        <Button
+                                            variant="primary"
+                                            size="lg"
+                                            className="fw-bold px-4 py-3 shadow-sm fs-5"
                                             onClick={() => navigate('/login')}
                                         >
                                             Inizia a Organizzare 🚀
                                         </Button>
-                                        <Button 
-                                            variant="outline-light" 
-                                            size="lg" 
-                                            className="px-4 py-3 fs-5" 
+                                        <Button
+                                            variant="outline-light"
+                                            size="lg"
+                                            className="px-4 py-3 fs-5"
                                             onClick={() => navigate('/register')}
                                         >
                                             Crea un Account Società
@@ -130,7 +143,7 @@ const Home = ({ tournaments = [] }) => {
                                                 <Badge bg={tournament.status === 'PROGRAMMATO' ? 'warning' : 'success'} text={tournament.status === 'PROGRAMMATO' ? 'dark' : 'white'} className="fw-bold">
                                                     {tournament.status || 'ATTIVO'}
                                                 </Badge>
-                                              
+
                                             </div>
 
                                             <Card.Title className="fw-bold text-dark fs-4 mb-2">{tournament.name}</Card.Title>
@@ -138,21 +151,41 @@ const Home = ({ tournaments = [] }) => {
                                                 ⚽ {tournament.teams?.length || tournament.localTeams?.length || 0} Club Partecipanti
                                             </Card.Text>
                                         </div>
-                                        
-                                        <Button 
-                                            variant="outline-primary" 
-                                            className="fw-bold mt-4 w-100" 
+
+                                        <Button
+                                            variant="outline-primary"
+                                            className="fw-bold mt-4 w-100"
                                             onClick={() => {
-                                                if (isLoggedIn) {
-                                                    navigate('/dashboard');
-                                                } else {
-                                                    alert("Accedi per visualizzare i dettagli completi, i calendari e la classifica live di questo torneo!");
+                                                if (!isLoggedIn) {
+                                                    alert("Accedi per visualizzare i dettagli di questo torneo!");
                                                     navigate('/login');
+                                                } else {
+                                                    const currentUser = JSON.parse(localStorage.getItem('user'));
+
+                                                    const tournamentOwnerId = tournament.userId;
+                                                    const currentUserId = currentUser?._id || currentUser?.id;
+
+                                                    if (tournamentOwnerId && currentUserId && tournamentOwnerId.toString() === currentUserId.toString()) {
+                                                        // 🚀 Spediamo lo stato provando tutte le varianti di chiavi più comuni
+                                                        navigate('/dashboard', {
+                                                            state: {
+                                                                tournamentId: tournament._id,
+                                                                tournament: tournament,
+                                                                selectedTournament: tournament
+                                                            }
+                                                        });
+                                                    } else {
+                                                        alert(`⚠️ Accesso Negato: Il torneo "${tournament.name}" è gestito da un'altra ASD. Non puoi accedere alla sua gestione.`);
+                                                    }
                                                 }
                                             }}
                                         >
                                             Visualizza Torneo Live →
                                         </Button>
+
+
+
+
                                     </Card.Body>
                                 </Card>
                             </Col>
