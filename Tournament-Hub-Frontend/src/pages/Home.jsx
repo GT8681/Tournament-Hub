@@ -9,7 +9,7 @@ const Home = () => {
 
     const [publicTournaments, setPublicTournaments] = useState([]);
     const [loading, setLoading] = useState(false);
-    
+
 
 
     const savedUser = localStorage.getItem('user');
@@ -180,6 +180,20 @@ const Home = () => {
                                                     <span>🏆 Formula:</span>
                                                     <span className="fw-bold text-dark text-uppercase small">Girone All'Italiana</span>
                                                 </div>
+                                                <div className="d-flex justify-content-between text-secondary mt-2 pt-2 border-top small">
+                                                    <span>👤 Organizzatore:</span>
+                                                    <span
+                                                        className="fw-semibold text-dark text-truncate ms-2"
+                                                        style={{ maxWidth: '160px' }}
+                                                        title={typeof t.userId === 'object' ? t.userId?.email : 'Organizzatore Torneo'}
+                                                    >
+                                                        {typeof t.userId === 'object' && t.userId?.email ? t.userId.email : 'Admin Hub'}
+                                                    </span>
+                                                </div>
+
+
+
+
                                             </div>
                                         </div>
 

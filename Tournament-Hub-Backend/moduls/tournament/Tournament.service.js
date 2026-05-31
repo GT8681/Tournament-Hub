@@ -5,7 +5,7 @@ const Match = require('../match/Match.schema.js');
 exports.getAllPublicTournaments = async () => {
   try {
     
-    return await Tournament.find().sort({ createdAt: -1 });
+    return await Tournament.find().sort({ createdAt: -1 }).populate('userId','email');
   } catch (error) {
     throw new Error("Errore nel recupero dei tornei dal database: " + error.message);
   }
