@@ -9,26 +9,27 @@ const {
   deleteTournament,
   getPublicTournaments
 } = require('./Tournament.controller.js'); // Verifica il percorso esatto
-const  protect  = require('../middleware/auth.js');
+const protect = require('../middleware/auth.js');
 
 router.get('/public', getPublicTournaments);
 
-// 1. Rotta per creare un torneo (POST /api/tournaments)
-//router.post('/', createTournament);
 
-// 2. Rotta per la classifica (GET /api/tournaments/:tournamentId/standings)
+// Rotta per la classifica (GET /api/tournaments/:tournamentId/standings)
 router.get('/:tournamentId/standings', getTournamentStandings);
 
-// 3. Rotta per il reset (POST /api/tournaments/:tournamentId/reset)
+// Rotta per il reset (POST /api/tournaments/:tournamentId/reset)
 router.post('/:tournamentId/reset', resetTournament);
 
-// 4. Rotta per recuperare un singolo torneo (GET /api/tournaments/:id)
+// Rotta per recuperare un singolo torneo (GET /api/tournaments/:id)
 router.get('/:id', getTournamentById);
+
+// Rotta per recuperare tutti i tornei (GET /api/tournaments) e per creare un nuovo torneo (POST /api/tournaments)
 router.route('/')
   .get(protect, getTournaments)      // Solo gli utenti loggati vedono i LORO tornei
   .post(protect, createTournament);  // Solo gli utenti loggati possono creare un torneo
 
-  router.delete('/:tournamentId',protect,deleteTournament);
+// rotta per eliminare un torneo (DELETE /api/tournaments/:tournamentId)
+router.delete('/:tournamentId', protect, deleteTournament);
 
 module.exports = router;
 

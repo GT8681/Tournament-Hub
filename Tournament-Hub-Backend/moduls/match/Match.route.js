@@ -5,14 +5,13 @@ const { generateCalendar,updateMatchResult, getMatchesByTournament } = require('
 
 //GET /api/matches/tournament/:tournamentId
 router.get('/tournament/:tournamentId',getMatchesByTournament);
+
 // POST /api/matches/generate/:tournamentId
 router.post('/generate/:tournamentId', generateCalendar);
 
+
 // PUT /api/matches/:matchId/score
 router.put('/:matchId/score',updateMatchResult);
-
-
-
 
 
 module.exports = router;

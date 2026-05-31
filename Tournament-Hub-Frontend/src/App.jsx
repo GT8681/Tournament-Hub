@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
+import { getPublicTournaments } from './services/api';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Register from './pages/Register';
-import { getPublicTournaments } from './services/api';
+import Footer from './components/footer/Footer';
+
 
 
 
@@ -77,15 +79,17 @@ function App() {
       <div className="app-container bg-light min-vh-100">
         {/* Passiamo l'utente e la funzione di logout alla Navbar */}
         <Navbar user={user} onLogout={handleLogout} />
-
+       
         <Routes>
+          
           {/* Home pubblica */}
           <Route path="/" element={<Home tournaments={tournaments} />} />
 
           {/* 🎯 LA TUA DASHBOARD: Accetta sia l'accesso normale, sia l'accesso a un torneo specifico tramite /:id */}
+        
           <Route
             path="/dashboard"
-            element={user ? <Dashboard/> : <Navigate to="/login" />}
+            element={user ? <Dashboard /> : <Navigate to="/login" />}
           />
           <Route
             path="/dashboard/:id"
@@ -94,10 +98,17 @@ function App() {
 
           <Route path="/login" element={!user ? <Login onLoginSuccess={setUser} /> : <Navigate to="/dashboard" />} />
           <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
+   
         </Routes>
-    </div>
+      
+         <Footer/>
+      </div>
+     
     </Router >
+  
+   
   );
+
 }
 
 export default App;

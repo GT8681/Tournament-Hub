@@ -24,15 +24,10 @@ app.use(express.json());
 // Usa le rotte
 app.use('/api/teams', teamRoutes);
 app.use('/api/tournaments', tournamentRoutes);
-
 app.use('/api/matches', matchRoutes);
-
-
 
 // Middleware per le rotte di autenticazione
 app.use('/api/auth', authRoutes);
-
-
 
 const PORT = process.env.PORT || 5000;
 
