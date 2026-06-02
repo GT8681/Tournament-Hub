@@ -78,9 +78,7 @@ export const getPublicTournaments = async () => {
   }
 };
 
-
-
-
+export const updateTournamentStatus = (tournamentId, status) => API.put(`/tournaments/${tournamentId}`, { status });
 
 
 // ==========================================

@@ -12,16 +12,16 @@ const Navbar = ({ user, onLogout }) => {
   };
 
   return (
-    <BootNavbar bg="dark" variant="dark" expand="lg" className="shadow px-3">
+    <BootNavbar bg="dark" variant="dark" expand="lg" className="shadow px-3 ms-auto d-flex justify-content-center align-items-center">
       <Container fluid>
-        <BootNavbar.Toggle aria-controls="navbar-tournament" />
+        <BootNavbar.Toggle aria-controls="navbar-tournament"  />
         
         <BootNavbar.Collapse id="navbar-tournament">
           <Nav className="ms-auto align-items-center gap-3">
             
             {/* 🏠 LINK HOME: Appare ovunque, MA scompare se sei già sulla Home ('/') */}
             {location.pathname !== '/' && (
-              <Nav.Link as={Link} to="/" state={null}>Home</Nav.Link>
+              <Nav.Link as={Link} to="/" state={null}>HOME</Nav.Link>
             )}
             
           
@@ -29,10 +29,10 @@ const Navbar = ({ user, onLogout }) => {
             {user && (
               <>
                 <span className="text-secondary small">
-                  Ciao, <strong className="text-warning">{user.name}</strong>
+                  CIAO, <strong className="text-warning">{user.name}</strong>
                 </span>
                 <Button variant="outline-danger" size="sm" onClick={handleLogoutClick} className="fw-bold px-3">
-                  Esci
+                  ESCI
                 </Button>
               </>
             )}

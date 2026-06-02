@@ -13,7 +13,6 @@ const protect = async (req, res, next) => {
       // 🔥 IMPORTANTE: Assicurati che process.env.JWT_SECRET sia lo stesso del login!
       const decoded = jwt.verify(token, JWT_SECRET);
 
-      console.log("Token decodificato con successo nel backend:", decoded);
 
       // 3. 🔥 IL TRUCCO ANCORA PIÙ SICURO:
       // Impostiamo req.user mappando sia id che _id per evitare l'errore undefined
@@ -23,7 +22,7 @@ const protect = async (req, res, next) => {
 
       // Se l'ID non è stato estratto in nessun modo, blocchiamo subito prima di mandarlo al torneo
       if (!req.user.id) {
-        console.error("⚠️ Il token è valido ma non contiene nessun ID utente all'interno!");
+     
         return res.status(401).json({ message: 'Token malformato. ID utente non trovato.' });
       }
 

@@ -68,8 +68,8 @@ exports.generateCalendarService = async (tournamentId) => {
   const savedMatches = await Match.insertMany(createdMatches);
 
   // 4. Aggiorna lo stato del torneo in 'IN_CORSO'
-  tournament.status = 'IN_CORSO';
-  await tournament.save();
+  Tournament.status = 'IN_CORSO';
+  await Tournament.save();
 
   return savedMatches;
 };

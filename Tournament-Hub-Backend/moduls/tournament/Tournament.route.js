@@ -7,7 +7,8 @@ const {
   resetTournament,
   getTournaments,
   deleteTournament,
-  getPublicTournaments
+  getPublicTournaments,
+  updateTournamentStatus
 } = require('./Tournament.controller.js'); // Verifica il percorso esatto
 const protect = require('../middleware/auth.js');
 
@@ -30,6 +31,10 @@ router.route('/')
 
 // rotta per eliminare un torneo (DELETE /api/tournaments/:tournamentId)
 router.delete('/:tournamentId', protect, deleteTournament);
+
+// Rotta per aggiornare lo stato del torneo (es. impostarlo come FINITO)
+router.put('/:tournamentId', protect, updateTournamentStatus);
+
 
 module.exports = router;
 

@@ -161,3 +161,32 @@ exports.deleteTournament = async (req, res) => {
     res.status(500).json({ message: "Errore durante l'eliminazione", error: error.message });
   }
 };
+
+
+// Aggiungi in fondo a Tournament.controller.js
+exports.updateTournamentStatus = async (req, res) => {
+  try {
+      const { tournamentId } = req.params;
+      const { status } = req.body;
+
+      // Aggiorna il campo status nel database
+      const updatedTournament = await Tournament.findByIdAndUpdate(
+          tournamentId,
+          { status: status },
+          { new: true } // Restituisce il documento aggiornato
+      );
+
+      if (!updatedTournament) {
+          return res.status(404).json({ message: "Torneo non trovato." });
+      }
+
+      return res.status(200).json({ 
+          message: "Stato torneo aggiornato con successo!", 
+          tournament: updatedTournament 
+      });
+  } catch (error) {
+      console.error("Errore updateTournamentStatus:", error);
+      return res.status(500).json({ message: "Errore interno del server.", error: error.message });
+  }
+};
+

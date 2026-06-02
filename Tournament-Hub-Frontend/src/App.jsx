@@ -33,9 +33,6 @@ function App() {
       // 🚀 Chiamiamo il servizio che usa l'istanza 'api' di axios
       const data = await getPublicTournaments();
 
-      // 🔍 DEBUG: Controlliamo cosa arriva esattamente dal backend
-      console.log("Dati ricevuti dal servizio api:", data);
-
       if (Array.isArray(data)) {
         // Se il backend restituisce direttamente l'array, lo salviamo
         setTournaments(data);
