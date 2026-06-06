@@ -48,29 +48,43 @@ exports.generateCalendar = async (req, res) => {
 
 
 
-// @desc    Aggiorna il risultato di una partita
-// @route   PUT /api/matches/:matchId/score
 exports.updateMatchResult = async (req, res) => {
+  const { id } = req.params;
+  
   try {
-    const { matchId } = req.params;
-    const { scoreHome, scoreAway, status } = req.body;
+      // Estraiamo sia scores che scorers per sicurezza
+      const { scoreHome, scoreAway, status, scores, scorers } = req.body;
+      
+      // Se il frontend ha mandato 'scorers', lo assegniamo a dataScores
+      const dataScores = scores || scorers || [];
 
-    // Aggiorna il match usando l'ID
-    const updatedMatch = await Match.findByIdAndUpdate(
-      matchId,
-      { scoreHome, scoreAway, status },
-      { new: true } // 👈 Questo parametro serve a restituire il documento modificato
-    );
+      const updatedMatch = await Match.findByIdAndUpdate(
+          id,
+          { 
+              scoreHome, 
+              scoreAway, 
+              status, 
+              scores: dataScores // 🛡️ Usiamo l'array valorizzato sicuro
+          },
+          { new: true }
+      ).populate('teamHome teamAway');
 
-    if (!updatedMatch) {
-      return res.status(404).json({ message: "Match non trovato" });
-    }
+      if (!updatedMatch) {
+          return res.status(404).json({ message: "Match non trovato" });
+      }
 
-    res.status(200).json({ message: "Risultato aggiornato!", match: updatedMatch });
+      res.json({
+          message: "Risultato aggiornato!",
+          match: updatedMatch
+      });
+
   } catch (error) {
-    res.status(500).json({ message: "Errore durante l'aggiornamento", error: error.message });
+      console.error("Errore backend:", error);
+      res.status(500).json({ message: "Errore interno" });
   }
 };
+
+
 
 
 

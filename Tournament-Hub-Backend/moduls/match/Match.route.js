@@ -11,7 +11,7 @@ router.post('/generate/:tournamentId', generateCalendar);
 
 
 // PUT /api/matches/:matchId/score
-router.put('/:matchId/score',updateMatchResult);
+router.put('/:id',updateMatchResult);
 
 
 module.exports = router;

@@ -11,7 +11,8 @@ import {
     Col,
     Badge,
     ListGroup,
-    Modal} from 'react-bootstrap';
+    Modal
+} from 'react-bootstrap';
 import {
     getMatches,
     getStandings,
@@ -52,13 +53,15 @@ const Dashboard = () => {
     const [showMinTeamsModal, setShowMinTeamsModal] = useState(false);
     // Stati per la modale del vincitore del torneo
     const [showWinnerModal, setShowWinnerModal] = useState(false);
-    const [winnerName, setWinnerName] = useState('');
+    const [tournamentWinner, setTournamentWinner] = useState(null);
     // Stati per il tabellino/scheda della singola squadra
     const [showTeamModal, setShowTeamModal] = useState(false);
     const [selectedTeamData, setSelectedTeamData] = useState(null);
-
-
-
+    const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+    const [duplicateTeamName, setDuplicateTeamName] = useState('');
+    // Stati per l'inserimento dei marcatori nella modale dei punteggi
+    const [homeScorersInput, setHomeScorersInput] = useState([]);
+    const [awayScorersInput, setAwayScorersInput] = useState([]);
 
 
 
@@ -91,6 +94,8 @@ const Dashboard = () => {
     const [selectedMatch, setSelectedMatch] = useState(null);
     const [inputScoreHome, setInputScoreHome] = useState(0);
     const [inputScoreAway, setInputScoreAway] = useState(0);
+
+
 
     useEffect(() => {
         // Controlliamo se siamo arrivati dalla Home con un torneo nello stato della navigazione
@@ -126,6 +131,8 @@ const Dashboard = () => {
     }, [location.state, currentUserId]); // Rimosso navigate da qui perché lo useremo al click del tasto
 
 
+
+
     // ==========================================
     // CARICAMENTO INIZIALE: TORNEI NELL'HUB
     // ==========================================
@@ -152,6 +159,8 @@ const Dashboard = () => {
             setLoading(false);
         }
     };
+
+
 
     useEffect(() => {
         loadUserTournaments();
@@ -202,14 +211,29 @@ const Dashboard = () => {
             fetchTournamentData('teams');
             fetchTournamentData('standings');
         }
-    }, [tournamentId]); // Togliamo activeSection dalle dipendenze così non rifà i fetch ogni volta che cambi tab!
-
+    }, [tournamentId]);
 
 
     const handleAddTeamToList = (e) => {
         e.preventDefault();
-        if (!singleTeamName.trim()) return;
-        setLocalTeams([...localTeams, singleTeamName.trim()]);
+
+        const cleanedName = singleTeamName.trim();
+        if (!cleanedName) return;
+
+        // Controlliamo se la squadra esiste già nell'elenco locale (case-insensitive)
+        const isDuplicate = localTeams.some(
+            (team) => (typeof team === 'object' ? team.name : team).toLowerCase() === cleanedName.toLowerCase()
+        );
+
+        if (isDuplicate) {
+            // Se è un duplicato, salviamo il nome, apriamo la modale e blocchiamo l'inserimento
+            setDuplicateTeamName(cleanedName);
+            setShowDuplicateModal(true);
+            return;
+        }
+
+        // Se è pulito, lo aggiungiamo normalmente come facevi prima
+        setLocalTeams([...localTeams, cleanedName]);
         setSingleTeamName('');
     };
 
@@ -304,72 +328,99 @@ const Dashboard = () => {
         setInputScoreHome(match.scoreHome || 0);
         setInputScoreAway(match.scoreAway || 0);
         setShowModal(true);
+
+        setHomeScorersInput(new Array(match.scoreHome || 0).fill(''));
+        setAwayScorersInput(new Array(match.scoreAway || 0).fill(''));
+        setShowModal(true);
+
     };
+
+
+
+    
+
 
     const handleSaveResult = async () => {
         if (!selectedMatch) return;
         setShowModal(false);
         setLoading(true);
+        
         try {
-            // 1. Salviamo il risultato sul server
+            const scorersPayload = [];
+            const homeTeamId = selectedMatch.teamHome?._id || selectedMatch.teamHome;
+            const awayTeamId = selectedMatch.teamAway?._id || selectedMatch.teamAway;
+    
+            // Impacchettamento dei marcatori
+            homeScorersInput.forEach(name => {
+                if (name && name.trim() !== '') {
+                    scorersPayload.push({ playerName: name.trim(), team: homeTeamId });
+                }
+            });
+    
+            awayScorersInput.forEach(name => {
+                if (name && name.trim() !== '') {
+                    scorersPayload.push({ playerName: name.trim(), team: awayTeamId });
+                }
+            });
+    
+            // Chiamata al servizio (che ora colpirà l'URL corretto senza /score)
             await updateMatchResult(selectedMatch._id, {
                 scoreHome: Number(inputScoreHome),
                 scoreAway: Number(inputScoreAway),
-                status: 'FINITA'
+                status: 'FINITA',
+                scores: scorersPayload // Sincronizzato con la proprietà del DB
             });
-
-            // 2. Scarichiamo IMMEDIATAMENTE i dati freschi dal server 
-            // e forziamo il recupero diretto per evitare i ritardi di React
+    
+            // Reset input modale inserimento
+            setHomeScorersInput([]);
+            setAwayScorersInput([]);
+    
+            // Rinfreschiamo i dati con le tue funzioni
             await fetchTournamentData('matches');
             await fetchTournamentData('standings');
-
-            // 3. Un piccolo trucco: usiamo un setTimeout di 300ms per dare il tempo 
-            // a React di popolare stabilmente gli stati di 'matches' e 'standings'
+            await fetchTournamentData('teams');
+    
+            // Controllo automatico vincitore con un piccolo timeout per gli stati
             setTimeout(() => {
-                // Controlliamo se TUTTI i match sono EFFETTIVAMENTE nello stato 'FINITA'
-                // Usiamo una logica stringente: nessun match deve avere lo stato diverso da 'FINITA'
-                const totalMatches = matches.length;
-                const playedMatches = matches.filter(m => m.status === 'FINITA' || m._id === selectedMatch._id).length;
-
-                // Il torneo è finito SOLO SE il numero di match giocati è uguale al totale dei match del calendario
-                const isTournamentReallyFinished = totalMatches > 0 && playedMatches === totalMatches;
-
-                if (isTournamentReallyFinished) {
-                    // Controlliamo la classifica reale appena arrivata dal server
-                    if (standings && standings.length > 0) {
-                        // Estraiamo il vincitore gestendo qualsiasi tipo di struttura dati (teamName, name, o oggetto annidato)
-                        const primoPosto = standings[0];
-                        const squadraCampione = primoPosto.teamName || primoPosto.name || (primoPosto.team && primoPosto.team.name);
-
-                        if (squadraCampione) {
-                            setWinnerName(squadraCampione);
-
-                            // Notifichiamo il backend del cambio stato del torneo
-                            updateTournamentStatus(tournamentId, 'FINITO').catch(err =>
-                                console.error("Errore asincrono update status torneo:", err)
-                            );
-
-                            // Spara la modale della festa!
+                if (matches && matches.length > 0) {
+                    const pendingMatches = matches.filter(m => m._id !== selectedMatch._id && m.status !== 'FINITA');
+    
+                    if (pendingMatches.length === 0) {
+                        if (standings && standings.length > 0) {
+                            const winner = standings[0]; 
+                            
+                            const winnerName = typeof winner.team === 'object' ? winner.team?.name : winner.team;
+                            const winnerLogo = typeof winner.team === 'object' ? winner.team?.logo : null;
+    
+                            setTournamentWinner({
+                                name: winnerName || 'Squadra Campione',
+                                points: winner.points || 0,
+                                logo: winnerLogo
+                            });
+                            
                             setShowWinnerModal(true);
                         }
                     }
                 }
-            }, 300);
-
+            }, 600);
+    
         } catch (err) {
-            console.error(err);
-            if (typeof setErrorMessage === 'function') {
-                setErrorMessage("Impossibile salvare il punteggio del match. Riprova.");
-                setShowErrorModal(true);
-            } else {
-                alert("Errore nel salvataggio del punteggio.");
-            }
+            console.error("Errore salvataggio:", err);
         } finally {
             setLoading(false);
         }
     };
+    
 
 
+
+   
+
+
+
+
+
+    
     // 1. Questa funzione si attiva quando si clicca sull'icona del cestino nelle card
     const triggerDeleteConfirmation = (tId, tName) => {
         setTournamentToDelete({ id: tId, name: tName });
@@ -410,59 +461,92 @@ const Dashboard = () => {
     };
 
 
-    const handleTeamClick = async(teamName) => {
-        // Se i match non ci sono ancora, proviamo a scaricarli al volo prima di rinunciare
-        if (!matches || matches.length === 0) {
-            if (typeof fetchTournamentData === 'function') {
-                await fetchTournamentData('matches');
-            } else {
-                return; // Se non c'è la funzione di fetch, esce
-            }
-        }
+    const handleTeamClick = (teamName) => {
+        // Controllo di sicurezza iniziale sugli array
+        if (!matches || matches.length === 0 || !teamName) return;
 
         let totalGoalsFor = 0;
         let totalGoalsAgainst = 0;
+        const allScorers = [];
 
-        // 1. Filtriamo solo i match FINITI della squadra
-        const teamMatches = matches.filter(m => {
-            const isPlayed = m.status === 'FINITA';
-            if (!isPlayed) return false;
+        try {
+            // 1. Filtriamo solo i match FINITI della squadra
+            const teamMatches = matches.filter(m => {
+                if (!m) return false;
+                const isPlayed = m.status === 'FINITA';
+                if (!isPlayed) return false;
 
-            const homeName = typeof m.teamHome === 'object' ? m.teamHome?.name : m.teamHome;
-            const awayName = typeof m.teamAway === 'object' ? m.teamAway?.name : m.teamAway;
+                const homeName = typeof m.teamHome === 'object' ? m.teamHome?.name : m.teamHome;
+                const awayName = typeof m.teamAway === 'object' ? m.teamAway?.name : m.teamAway;
 
-            return homeName === teamName || awayName === teamName;
-        });
+                return homeName === teamName || awayName === teamName;
+            });
 
-        // 2. Calcoliamo Trend e Sommiamo i Gol
-        const trend = teamMatches.slice(-5).map(m => {
-            const homeName = typeof m.teamHome === 'object' ? m.teamHome?.name : m.teamHome;
-            const isHome = homeName === teamName;
+            // 2. Calcoliamo Trend, Gol e Raccogliamo i Marcatori personali
+            const trend = teamMatches.slice(-5).map(m => {
+                const homeName = typeof m.teamHome === 'object' ? m.teamHome?.name : m.teamHome;
+                const isHome = homeName === teamName;
 
-            const goalsFatti = isHome ? m.scoreHome : m.scoreAway;
-            const goalsSubiti = isHome ? m.scoreAway : m.scoreHome;
+                const goalsFatti = Number(m.scoreHome) || 0;
+                const goalsSubiti = Number(m.scoreAway) || 0;
 
-            // Sommiamo i gol totali per le statistiche generali
-            totalGoalsFor += goalsFatti;
-            totalGoalsAgainst += goalsSubiti;
+                // Somma dei gol fatti e subiti in base alla posizione (Casa/Trasferta)
+                totalGoalsFor += isHome ? goalsFatti : goalsSubiti;
+                totalGoalsAgainst += isHome ? goalsSubiti : goalsFatti;
 
-            if (goalsFatti > goalsSubiti) return { label: 'V', color: '#22c55e' }; // Vittoria
-            if (goalsFatti === goalsSubiti) return { label: 'P', color: '#94a3b8' }; // Pareggio
-            return { label: 'S', color: '#ef4444' }; // Sconfitta
-        });
+                // 🔥 RACCOLTA MARCATORI CON CONTROLLI DI SICUREZZA ANTICRASH
+                if (m.scores && Array.isArray(m.scores) && m.scores.length > 0) {
+                    m.scores.forEach(scorer => {
+                        if (!scorer) return;
 
-        // 3. Salviamo tutto nello stato, inclusi i conteggi dei gol
-        setSelectedTeamData({
-            name: teamName,
-            matches: teamMatches,
-            trend: trend,
-            golFatti: totalGoalsFor,
-            golSubiti: totalGoalsAgainst
-        });
-        setShowTeamModal(true);
+                        // Estraiamo il nome del team del marcatore in modo sicuro
+                        const scorerTeamName = typeof scorer.team === 'object' ? scorer.team?.name : null;
+                        const scorerTeamId = typeof scorer.team === 'string' ? scorer.team : scorer.team?._id;
+
+                        // Estraiamo l'ID corrente del nostro team (casa o trasferta)
+                        const currentTeamId = isHome
+                            ? (typeof m.teamHome === 'object' ? m.teamHome?._id : m.teamHome)
+                            : (typeof m.teamAway === 'object' ? m.teamAway?._id : m.teamAway);
+
+                        // Se combacia il nome o l'ID, salviamo il marcatore
+                        if ((scorerTeamName && scorerTeamName === teamName) || (scorerTeamId && currentTeamId && scorerTeamId === currentTeamId)) {
+                            if (scorer.playerName) {
+                                allScorers.push(scorer.playerName);
+                            }
+                        }
+                    });
+                }
+
+                if (goalsFatti > goalsSubiti) return isHome ? { label: 'V', color: '#22c55e' } : { label: 'S', color: '#ef4444' };
+                if (goalsFatti === goalsSubiti) return { label: 'P', color: '#94a3b8' };
+                return isHome ? { label: 'S', color: '#ef4444' } : { label: 'V', color: '#22c55e' };
+            });
+
+            // 3. Salviamo tutto nello stato, inclusi i marcatori estratti!
+            setSelectedTeamData({
+                name: teamName,
+                matches: teamMatches,
+                trend: trend,
+                golFatti: totalGoalsFor,
+                golSubiti: totalGoalsAgainst,
+                marcatori: allScorers
+            });
+            setShowTeamModal(true);
+
+        } catch (error) {
+            console.error("Errore critico nel calcolo del tabellino:", error);
+            // Fallback di sicurezza: apre comunque la modale mostrando i dati parziali senza far crashare la pagina
+            setSelectedTeamData({
+                name: teamName,
+                matches: [],
+                trend: [],
+                golFatti: 0,
+                golSubiti: 0,
+                marcatori: []
+            });
+            setShowTeamModal(true);
+        }
     };
-
-
     return (
         <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa', fontFamily: '"Segoe UI", Roboto, sans-serif' }}>
 
@@ -1016,6 +1100,63 @@ const Dashboard = () => {
                                         <small className="text-muted mt-1 d-block fw-semibold">Reti Fuori</small>
                                     </Form.Group>
                                 </Col>
+
+
+                                {/* Sezione dinamica Marcatori */}
+                                <div className="mt-4 border-top pt-3">
+                                    <h6 className="fw-bold text-dark text-center mb-3">⚽ Chi ha segnato?</h6>
+                                    <div className="row">
+                                        {/* Marcatori Squadra Casa */}
+                                        <div className="col-6 border-end">
+                                            <span className="small text-muted d-block mb-2 text-center fw-bold">
+                                                Marcatori {typeof selectedMatch?.teamHome === 'object' ? selectedMatch.teamHome?.name : 'Casa'}
+                                            </span>
+                                            {Array.from({ length: Number(inputScoreHome) || 0 }).map((_, i) => (
+                                                <input
+                                                    key={`home-scorer-${i}`}
+                                                    type="text"
+                                                    className="form-control form-control-sm mb-2 rounded-2 shadow-sm"
+                                                    placeholder={`Autore Gol ${i + 1}`}
+                                                    value={homeScorersInput[i] || ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setHomeScorersInput(prev => {
+                                                            const updated = [...prev];
+                                                            updated[i] = val;
+                                                            return updated;
+                                                        });
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+
+                                        {/* Marcatori Squadra Trasferta */}
+                                        <div className="col-6">
+                                            <span className="small text-muted d-block mb-2 text-center fw-bold">
+                                                Marcatori {typeof selectedMatch?.teamAway === 'object' ? selectedMatch.teamAway?.name : 'Trasferta'}
+                                            </span>
+                                            {Array.from({ length: Number(inputScoreAway) || 0 }).map((_, i) => (
+                                                <input
+                                                    key={`away-scorer-${i}`}
+                                                    type="text"
+                                                    className="form-control form-control-sm mb-2 rounded-2 shadow-sm"
+                                                    placeholder={`Autore Gol ${i + 1}`}
+                                                    value={awayScorersInput[i] || ''}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        setAwayScorersInput(prev => {
+                                                            const updated = [...prev];
+                                                            updated[i] = val;
+                                                            return updated;
+                                                        });
+                                                    }}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+
                             </Row>
                         </Form>
                     )}
@@ -1124,52 +1265,58 @@ const Dashboard = () => {
             </Modal>
 
 
-            {/* 👑 MODAL DI PREMIAZIONE: CAMPIONE DEL TORNEO */}
-            <Modal
-                show={showWinnerModal}
-                onHide={() => setShowWinnerModal(false)}
-                centered
-                backdrop="static" // Impedisce di chiuderla cliccando fuori, costringe a godersi la vittoria!
+                       {/* 🏆 MODAL TRIONFO VINCITORE TORNEO */}
+                       <Modal 
+                show={showWinnerModal} 
+                onHide={() => setShowWinnerModal(false)} 
+                centered 
+                backdrop="static" // Impedisce di chiuderla cliccando fuori, costringe a godersi il trionfo!
                 className="rounded-4 overflow-hidden"
             >
-                <Modal.Body className="p-5 text-center text-white" style={{
-                    background: 'linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%)', // Sfondo premium scuro
-                    borderRadius: '16px',
-                    border: '3px solid #eab308' // Splendido bordo Oro
-                }}>
-                    <div className="mb-3 animate-bounce" style={{ fontSize: '85px', filter: 'drop-shadow(0 0 20px rgba(234,179,8,0.6))' }}>
+                <Modal.Body className="p-5 bg-dark text-white text-center" style={{ borderRadius: '16px', border: '3px solid #eab308' }}>
+                    
+                    {/* Effetto Corona / Trofeo */}
+                    <div className="mb-3 animate-bounce" style={{ fontSize: '70px' }}>
                         👑
                     </div>
-                    <span className="badge bg-warning text-dark mb-2 px-3 py-2 fw-bold text-uppercase rounded-pill tracking-wider">
-                        Classifica Conclusa 🏁
-                    </span>
-
-                    <h2 className="display-6 fw-black text-white mt-2 mb-1" style={{ fontWeight: 800 }}>
-                        CAMPIONI DEL TORNEO!
+                    
+                    <h2 className="fw-black text-uppercase tracking-wider text-warning mb-1" style={{ fontWeight: 900, fontSize: '28px' }}>
+                        Campioni del Torneo!
                     </h2>
-
-                    {/* NOME DELLA SQUADRA VINCITRICE IN ORO */}
-                    <h1 className="display-4 fw-black my-3 text-uppercase tracking-tight" style={{ fontWeight: 900, color: '#eab308', textShadow: '0px 4px 12px rgba(234,179,8,0.3)' }}>
-                        🎉 {winnerName} 🎉
-                    </h1>
-
-                    <p className="text-white-50 mx-auto mb-4 small" style={{ maxWidth: '320px' }}>
-                        La competizione è terminata ufficialmente. Tutte le gare sono state disputate e i verdetti del campo sono ora storicizzati.
+                    <p className="text-white-50 small text-uppercase tracking-widest mb-4" style={{ fontSize: '11px' }}>
+                        Classifica Finale Conclusa
                     </p>
 
-                    <Button
-                        variant="warning"
-                        className="fw-bold px-5 py-2.5 rounded-pill text-dark text-uppercase tracking-wider w-100 shadow"
-                        style={{ backgroundColor: '#eab308', border: 'none', fontSize: '13px' }}
-                        onClick={() => {
-                            setShowWinnerModal(false);
-                            // Rinfresca un'ultima volta per bloccare i form ed evidenziare lo stato concluso
-                            if (typeof fetchTournamentData === 'function') {
-                                fetchTournamentData('matches');
-                            }
-                        }}
+                    {/* Box Squadra Vincitrice */}
+                    <div className="bg-black bg-opacity-40 p-4 rounded-4 mb-4 border border-warning border-opacity-20 shadow-lg">
+                        {tournamentWinner?.logo && (
+                            <img 
+                                src={tournamentWinner.logo} 
+                                alt="Logo Campione" 
+                                className="img-fluid mb-3 rounded-circle border border-warning p-1" 
+                                style={{ width: '80px', height: '80px', objectFit: 'cover' }}
+                            />
+                        )}
+                        <h3 className="fw-bold text-white text-uppercase m-0 tracking-wide">
+                            {tournamentWinner?.name || 'Squadra Campione'}
+                        </h3>
+                        <span className="badge bg-warning text-dark fw-black font-monospace mt-2 px-3 py-1.5 rounded-pill" style={{ fontSize: '14px' }}>
+                            🥇 {tournamentWinner?.points || 0} Punti
+                        </span>
+                    </div>
+
+                    <p className="text-muted small px-3 mb-4">
+                        Il calendario è stato completato con successo. Tutte le partite sono state disputate e i risultati sono ufficiali.
+                    </p>
+
+                    {/* Tasto per chiudere */}
+                    <Button 
+                        variant="warning" 
+                        className="fw-bold w-100 py-2.5 rounded-pill text-uppercase tracking-wider shadow"
+                        style={{ backgroundColor: '#eab308', border: 'none', color: '#000', fontSize: '13px' }}
+                        onClick={() => setShowWinnerModal(false)}
                     >
-                        Chiudi e Archivia 📁
+                        Chiudi e Festeggia 🍾
                     </Button>
                 </Modal.Body>
             </Modal>
@@ -1219,19 +1366,37 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    {/* 📊 NUOVA SEZIONE: GOAL FATTI E SUBITI */}
-                    <div className="row g-2 mb-4">
+                    {/* GOAL FATTI E SUBITI */}
+                    <div className="row g-2 mb-3">
                         <div className="col-6">
                             <div className="p-2 rounded-3 text-center" style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)', border: '1px solid rgba(34, 197, 94, 0.3)' }}>
-                                <span className="text-success small d-block text-uppercase fw-bold" style={{ fontSize: '10px', trackingSpacer: '1px' }}>Gol Fatti ⚽</span>
+                                <span className="text-success small d-block text-uppercase fw-bold" style={{ fontSize: '10px' }}>Gol Fatti ⚽</span>
                                 <h3 className="fw-bold text-success m-0 mt-1">{selectedTeamData?.golFatti || 0}</h3>
                             </div>
                         </div>
                         <div className="col-6">
                             <div className="p-2 rounded-3 text-center" style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
-                                <span className="text-danger small d-block text-uppercase fw-bold" style={{ fontSize: '10px', trackingSpacer: '1px' }}>Gol Subiti 🥅</span>
+                                <span className="text-danger small d-block text-uppercase fw-bold" style={{ fontSize: '10px' }}>Gol Subiti 🥅</span>
                                 <h3 className="fw-bold text-danger m-0 mt-1">{selectedTeamData?.golSubiti || 0}</h3>
                             </div>
+                        </div>
+                    </div>
+
+                    {/* 🔥 NUOVA SEZIONE: ELENCO DEI MARCATORI REALI DELLA SQUADRA */}
+                    <div className="mb-4 bg-black bg-opacity-10 p-2.5 rounded-3 border border-secondary border-opacity-20">
+                        <span className="text-info small d-block mb-2 text-uppercase fw-bold tracking-wider" style={{ fontSize: '11px' }}>
+                            Lista Marcatori Club
+                        </span>
+                        <div className="d-flex flex-wrap gap-1.5 justify-content-start">
+                            {!selectedTeamData?.marcatori || selectedTeamData.marcatori.length === 0 ? (
+                                <span className="text-muted small italic">Nessun marcatore registrato</span>
+                            ) : (
+                                selectedTeamData.marcatori.map((player, idx) => (
+                                    <span key={idx} className="badge bg-secondary bg-opacity-50 text-white font-monospace px-2 py-1.5 rounded-2 small">
+                                        ⚽ {player}
+                                    </span>
+                                ))
+                            )}
                         </div>
                     </div>
 
@@ -1239,7 +1404,7 @@ const Dashboard = () => {
                     <h6 className="text-white-50 text-uppercase tracking-wider small mb-2 fw-bold" style={{ fontSize: '11px' }}>
                         Risultati sul Campo
                     </h6>
-                    <div className="overflow-auto pe-1" style={{ maxHeight: '200px' }}>
+                    <div className="overflow-auto pe-1" style={{ maxHeight: '180px' }}>
                         {selectedTeamData?.matches && selectedTeamData.matches.length > 0 ? (
                             selectedTeamData.matches.map((m, idx) => {
                                 const displayHome = typeof m.teamHome === 'object' ? m.teamHome?.name : m.teamHome;
@@ -1282,7 +1447,33 @@ const Dashboard = () => {
 
 
 
-
+            {/* ⚠️ MODAL ERRORE: SQUADRA DUPLICATA */}
+            <Modal
+                show={showDuplicateModal}
+                onHide={() => setShowDuplicateModal(false)}
+                centered
+                className="rounded-4 overflow-hidden"
+            >
+                <Modal.Body className="p-4 bg-dark text-white text-center" style={{ borderRadius: '16px', border: '2px solid #ef4444' }}>
+                    <div className="mb-3 animate-pulse" style={{ fontSize: '60px' }}>
+                        ⚠️
+                    </div>
+                    <h4 className="fw-black text-uppercase tracking-wide text-danger mb-2" style={{ fontWeight: 800 }}>
+                        Squadra Già Presente!
+                    </h4>
+                    <p className="text-white-50 small mx-auto mb-4" style={{ maxWidth: '300px' }}>
+                        Non puoi inserire due club con lo stesso nome nello stesso torneo. Il club <strong className="text-white">"{duplicateTeamName}"</strong> è già registrato nella lista.
+                    </p>
+                    <Button
+                        variant="danger"
+                        className="fw-bold px-5 py-2 rounded-pill w-100 text-uppercase tracking-wider shadow-sm"
+                        style={{ backgroundColor: '#ef4444', border: 'none', fontSize: '13px' }}
+                        onClick={() => setShowDuplicateModal(false)}
+                    >
+                        Ho Capito, Modifica ✍️
+                    </Button>
+                </Modal.Body>
+            </Modal>
 
         </div>
     );

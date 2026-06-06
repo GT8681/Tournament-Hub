@@ -13,7 +13,7 @@ API.interceptors.request.use((config) => {
   if (token) {
     // Inseriamo il token nel formato standard Bearer
     config.headers.Authorization = `Bearer ${token}`;
-    console.log("🔑 Token iniettato correttamente nella richiesta:", config.url);
+    
   } else {
     console.warn("⚠️ Attenzione: Nessun token trovato nel localStorage per la rotta:", config.url);
   }
@@ -102,7 +102,7 @@ export const getMatches = (tournamentId) => API.get(`/matches/tournament/${tourn
 export const generateCalendar = (tournamentId) => API.post(`/matches/generate/${tournamentId}`);
 
 // Corrisponde a: PUT /api/matches/:matchId/score (Aggiorna il risultato)
-export const updateMatchResult = (matchId, scoreData) => API.put(`/matches/${matchId}/score`, scoreData);
+export const updateMatchResult = (matchId, scoreData) => API.put(`/matches/${matchId}`, scoreData);
 
 export default API;
 

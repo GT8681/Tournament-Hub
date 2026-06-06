@@ -74,16 +74,17 @@ function App() {
   return (
     <Router>
       <div className="app-container bg-light min-vh-100">
+        
         {/* Passiamo l'utente e la funzione di logout alla Navbar */}
         <Navbar user={user} onLogout={handleLogout} />
-       
+
         <Routes>
-          
+
           {/* Home pubblica */}
           <Route path="/" element={<Home tournaments={tournaments} />} />
 
-          {/* 🎯 LA TUA DASHBOARD: Accetta sia l'accesso normale, sia l'accesso a un torneo specifico tramite /:id */}
-        
+          {/* DASHBOARD: Accetta sia l'accesso normale, sia l'accesso a un torneo specifico tramite /:id */}
+
           <Route
             path="/dashboard"
             element={user ? <Dashboard /> : <Navigate to="/login" />}
@@ -95,15 +96,12 @@ function App() {
 
           <Route path="/login" element={!user ? <Login onLoginSuccess={setUser} /> : <Navigate to="/dashboard" />} />
           <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
-   
         </Routes>
-      
-         <Footer/>
+        <Footer />
       </div>
-     
     </Router >
-  
-   
+
+
   );
 
 }

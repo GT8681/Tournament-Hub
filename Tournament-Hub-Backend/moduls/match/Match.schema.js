@@ -36,7 +36,11 @@ const MatchSchema = new mongoose.Schema({
   date: {
     type: Date,
     required: false
-  }
+  },
+  scores:[{
+    playerName:{type:String, required:true},
+      team:{type: mongoose.Schema.Types.ObjectId, ref: 'Team', required:true},
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Match', MatchSchema);
