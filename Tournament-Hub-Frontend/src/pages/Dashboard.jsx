@@ -62,7 +62,10 @@ const Dashboard = () => {
     // Stati per l'inserimento dei marcatori nella modale dei punteggi
     const [homeScorersInput, setHomeScorersInput] = useState([]);
     const [awayScorersInput, setAwayScorersInput] = useState([]);
-
+    const [showPlayoffModal, setShowPlayoffModal] = useState(false);
+    const [playoffTeams, setPlayoffTeams] = useState([]); // Diventa un array!
+    const [playoffPoints, setPlayoffPoints] = useState(0);
+    const [isResetting, setIsResetting] = useState(false);
 
 
 
@@ -192,6 +195,7 @@ const Dashboard = () => {
                 const response = await getStandings(tournamentId);
                 const dataArray = Array.isArray(response.data) ? response.data : (response.data.standings || response.data.data || []);
                 setStandings(dataArray);
+                return response.data; // 🔥 RITORNIAMO I DATI PER USARLI DOPO LA GENERAZIONE DEL CALENDARIO
             }
         } catch (err) {
             console.error(`Errore caricamento ${section}:`, err);
@@ -212,6 +216,7 @@ const Dashboard = () => {
             fetchTournamentData('standings');
         }
     }, [tournamentId]);
+
 
 
     const handleAddTeamToList = (e) => {
@@ -239,9 +244,13 @@ const Dashboard = () => {
 
 
 
+
+
     const handleRemoveTeamFromList = (indexToRemove) => {
         setLocalTeams(localTeams.filter((_, index) => index !== indexToRemove));
     };
+
+
 
 
 
@@ -306,22 +315,44 @@ const Dashboard = () => {
 
     };
 
+
+
     const handleGenerateCalendar = async () => {
         if (!tournamentId) return;
+        setSelectedMatch(null);
         setLoading(true);
         setError('');
         setMatches([]);
+
         try {
+            setIsResetting(true); // Attiviamo lo stato di reset per sicurezza
+
+            // 1. Generiamo il calendario sul server
             await generateCalendar(tournamentId);
+
+            // 2. Apriamo solo la modale del calendario generato con successo
             setShowCalendarModal(true);
             setActiveSection('matches');
-            fetchTournamentData('matches');
+
+            // 3. Aggiorniamo i dati della Dashboard in background
+            await fetchTournamentData('matches');
+            await fetchTournamentData('standings');
+            await fetchTournamentData('teams');
+
+            // 🎯 NOTA: Abbiamo ELIMINATO il blocco 'if (standings.length > 1)' che faceva scattare lo spareggio a 0 punti!
+
         } catch (err) {
             setError(err.response?.data?.message || "Il calendario è già stato generato o errore server");
         } finally {
+            setTimeout(() => {
+                setIsResetting(false);
+            }, 500);
             setLoading(false);
         }
     };
+
+
+
 
     const openEditModal = (match) => {
         setSelectedMatch(match);
@@ -333,94 +364,127 @@ const Dashboard = () => {
         setAwayScorersInput(new Array(match.scoreAway || 0).fill(''));
         setShowModal(true);
 
-    };
-
-
-
-    
+    }; 
 
 
     const handleSaveResult = async () => {
         if (!selectedMatch) return;
         setShowModal(false);
         setLoading(true);
-        
+
         try {
             const scorersPayload = [];
             const homeTeamId = selectedMatch.teamHome?._id || selectedMatch.teamHome;
             const awayTeamId = selectedMatch.teamAway?._id || selectedMatch.teamAway;
-    
-            // Impacchettamento dei marcatori
+
             homeScorersInput.forEach(name => {
                 if (name && name.trim() !== '') {
                     scorersPayload.push({ playerName: name.trim(), team: homeTeamId });
                 }
             });
-    
+
             awayScorersInput.forEach(name => {
                 if (name && name.trim() !== '') {
                     scorersPayload.push({ playerName: name.trim(), team: awayTeamId });
                 }
             });
-    
-            // Chiamata al servizio (che ora colpirà l'URL corretto senza /score)
+
+            // 1. Salvataggio sul database
             await updateMatchResult(selectedMatch._id, {
                 scoreHome: Number(inputScoreHome),
                 scoreAway: Number(inputScoreAway),
                 status: 'FINITA',
-                scores: scorersPayload // Sincronizzato con la proprietà del DB
+                scores: scorersPayload
             });
-    
-            // Reset input modale inserimento
+
             setHomeScorersInput([]);
             setAwayScorersInput([]);
-    
-            // Rinfreschiamo i dati con le tue funzioni
-            await fetchTournamentData('matches');
-            await fetchTournamentData('standings');
-            await fetchTournamentData('teams');
-    
-            // Controllo automatico vincitore con un piccolo timeout per gli stati
-            setTimeout(() => {
-                if (matches && matches.length > 0) {
-                    const pendingMatches = matches.filter(m => m._id !== selectedMatch._id && m.status !== 'FINITA');
-    
-                    if (pendingMatches.length === 0) {
-                        if (standings && standings.length > 0) {
-                            const winner = standings[0]; 
-                            
-                            const winnerName = typeof winner.team === 'object' ? winner.team?.name : winner.team;
-                            const winnerLogo = typeof winner.team === 'object' ? winner.team?.logo : null;
-    
-                            setTournamentWinner({
-                                name: winnerName || 'Squadra Campione',
-                                points: winner.points || 0,
-                                logo: winnerLogo
-                            });
-                            
-                            setShowWinnerModal(true);
-                        }
-                    }
+
+                   // 2. Scarichiamo i dati freschi dal server
+        const dataMatches = await fetchTournamentData('matches');
+        const dataStandings = await fetchTournamentData('standings');
+        const dataTeams = await fetchTournamentData('teams');
+
+        if (dataStandings) {
+            setStandings(dataStandings);
+        }
+
+        
+        
+        // 🔥 TRUCCO: Se dataMatches è undefined, usiamo l'array 'matches' dello stato di React
+        const finalMatches = dataMatches || matches; 
+        const finalStandings = dataStandings || standings;
+        const finalTeams = dataTeams || teams || [];
+
+        if (!finalMatches || finalMatches.length === 0) {
+            console.log("Blocco: Nessun match trovato nemmeno nello stato locale.");
+            setLoading(false);
+            return;
+        }
+
+        // Filtriamo le partite non finite
+        const pendingMatches = finalMatches.filter(m => m._id !== selectedMatch._id && m.status !== 'FINITA');
+
+        // Se non ci sono più partite aperte, il torneo è finito!
+        if (pendingMatches.length === 0) {
+            
+
+            if (finalStandings && finalStandings.length > 0) {
+                const prima = finalStandings[0];
+                const maxPunti = prima.points || 0;
+                
+                const getDiff = (s) => {
+                    if (s.goalDifference !== undefined) return s.goalDifference;
+                    return (s.goalsFor || 0) - (s.goalsAgainst || 0);
+                };
+                
+                const maxDiff = getDiff(prima);
+                // Filtriamo tutte le squadre che hanno gli stessi punti e la stessa differenza reti della prima
+                const squadreInSpareggio = finalStandings.filter(s => {
+                    const punti = s.points || 0;
+                    const diff = getDiff(s);
+                    return punti === maxPunti && diff === maxDiff;
+                });
+                // ⚔️ CASO SPAREGGIO: Se sono 2 o più squadre
+                if (squadreInSpareggio.length > 1) {
+                    const listaSquadre = squadreInSpareggio.map(s => {
+                        const idSquadraClassifica = s.teamId || s.team;
+                        const teamIdString = typeof idSquadraClassifica === 'object' ? idSquadraClassifica?._id : idSquadraClassifica;
+                        const teamTrovato = finalTeams.find(t => t._id === teamIdString);
+
+                        return {
+                            name: teamTrovato ? teamTrovato.name : "Squadra Anonima",
+                            logo: teamTrovato ? teamTrovato.logo : null
+                        };
+                    });
+                    setPlayoffTeams(listaSquadre);
+                    setPlayoffPoints(maxPunti);
+                    setShowPlayoffModal(true); // 💥 APRE LA MODALE ROSSA
+                    setLoading(false);
+                    return;
                 }
-            }, 600);
-    
+                // 🥇 CASO VINCITORE SINGOLO
+                const winner = finalStandings[0];
+                const idWinner = winner.teamId || winner.team;
+                const winnerIdString = typeof idWinner === 'object' ? idWinner?._id : idWinner;
+                const teamWinnerTrovato = finalTeams.find(t => t._id === winnerIdString);
+
+                setTournamentWinner({
+                    name: teamWinnerTrovato ? teamWinnerTrovato.name : "Squadra Campione",
+                    points: winner.points || 0,
+                    logo: teamWinnerTrovato ? teamWinnerTrovato.logo : null
+                });
+                setShowWinnerModal(true);
+            }
+        } 
         } catch (err) {
-            console.error("Errore salvataggio:", err);
+            console.error("Errore durante il salvataggio dei risultati:", err);
         } finally {
             setLoading(false);
         }
     };
-    
 
 
-
-   
-
-
-
-
-
-    
     // 1. Questa funzione si attiva quando si clicca sull'icona del cestino nelle card
     const triggerDeleteConfirmation = (tId, tName) => {
         setTournamentToDelete({ id: tId, name: tName });
@@ -460,9 +524,8 @@ const Dashboard = () => {
         }
     };
 
-
     const handleTeamClick = (teamName) => {
-        // Controllo di sicurezza iniziale sugli array
+        // Controllo di sicurezza iniziale
         if (!matches || matches.length === 0 || !teamName) return;
 
         let totalGoalsFor = 0;
@@ -470,7 +533,7 @@ const Dashboard = () => {
         const allScorers = [];
 
         try {
-            // 1. Filtriamo solo i match FINITI della squadra
+            // 1. Filtriamo TUTTI i match FINITI della squadra
             const teamMatches = matches.filter(m => {
                 if (!m) return false;
                 const isPlayed = m.status === 'FINITA';
@@ -482,34 +545,43 @@ const Dashboard = () => {
                 return homeName === teamName || awayName === teamName;
             });
 
-            // 2. Calcoliamo Trend, Gol e Raccogliamo i Marcatori personali
-            const trend = teamMatches.slice(-5).map(m => {
+            // 2. Calcoliamo i Gol Totali e Raccogliamo TUTTI i Marcatori su TUTTE le partite
+            teamMatches.forEach(m => {
                 const homeName = typeof m.teamHome === 'object' ? m.teamHome?.name : m.teamHome;
                 const isHome = homeName === teamName;
 
-                const goalsFatti = Number(m.scoreHome) || 0;
-                const goalsSubiti = Number(m.scoreAway) || 0;
+                const scoreHome = Number(m.scoreHome) || 0;
+                const scoreAway = Number(m.scoreAway) || 0;
 
-                // Somma dei gol fatti e subiti in base alla posizione (Casa/Trasferta)
-                totalGoalsFor += isHome ? goalsFatti : goalsSubiti;
-                totalGoalsAgainst += isHome ? goalsSubiti : goalsFatti;
+                // Gol FATTI e SUBITI reali della squadra analizzata
+                const goalsFatti = isHome ? scoreHome : scoreAway;
+                const goalsSubiti = isHome ? scoreAway : scoreHome;
 
-                // 🔥 RACCOLTA MARCATORI CON CONTROLLI DI SICUREZZA ANTICRASH
+                totalGoalsFor += goalsFatti;
+                totalGoalsAgainst += goalsSubiti;
+
+                //  RACCOLTA MARCATORI DA TUTTI I MATCH
+
                 if (m.scores && Array.isArray(m.scores) && m.scores.length > 0) {
                     m.scores.forEach(scorer => {
                         if (!scorer) return;
 
-                        // Estraiamo il nome del team del marcatore in modo sicuro
-                        const scorerTeamName = typeof scorer.team === 'object' ? scorer.team?.name : null;
-                        const scorerTeamId = typeof scorer.team === 'string' ? scorer.team : scorer.team?._id;
+                        // Estrazione sicura del nome del team del marcatore
+                        const scorerTeamName = scorer.team?.name || null;
 
-                        // Estraiamo l'ID corrente del nostro team (casa o trasferta)
+                        // Estrazione dell'ID del team del marcatore (può essere una stringa o un oggetto)
+                        const scorerTeamId = typeof scorer.team === 'object' ? scorer.team?._id : scorer.team;
+
+                        // Estraiamo l'ID corrente del nostro team visualizzato
                         const currentTeamId = isHome
                             ? (typeof m.teamHome === 'object' ? m.teamHome?._id : m.teamHome)
                             : (typeof m.teamAway === 'object' ? m.teamAway?._id : m.teamAway);
 
-                        // Se combacia il nome o l'ID, salviamo il marcatore
-                        if ((scorerTeamName && scorerTeamName === teamName) || (scorerTeamId && currentTeamId && scorerTeamId === currentTeamId)) {
+                        // Confronto super esteso: controlliamo i nomi o gli ID
+                        const matchConNome = scorerTeamName && scorerTeamName.toLowerCase() === teamName.toLowerCase();
+                        const matchConId = scorerTeamId && currentTeamId && scorerTeamId.toString() === currentTeamId.toString();
+
+                        if (matchConNome || matchConId) {
                             if (scorer.playerName) {
                                 allScorers.push(scorer.playerName);
                             }
@@ -517,12 +589,25 @@ const Dashboard = () => {
                     });
                 }
 
-                if (goalsFatti > goalsSubiti) return isHome ? { label: 'V', color: '#22c55e' } : { label: 'S', color: '#ef4444' };
-                if (goalsFatti === goalsSubiti) return { label: 'P', color: '#94a3b8' };
-                return isHome ? { label: 'S', color: '#ef4444' } : { label: 'V', color: '#22c55e' };
             });
 
-            // 3. Salviamo tutto nello stato, inclusi i marcatori estratti!
+            // 3. Calcoliamo il Trend (Stato Forma) prendendo solo gli ultimi 5 match
+            const trend = teamMatches.slice(-5).map(m => {
+                const homeName = typeof m.teamHome === 'object' ? m.teamHome?.name : m.teamHome;
+                const isHome = homeName === teamName;
+
+                const scoreHome = Number(m.scoreHome) || 0;
+                const scoreAway = Number(m.scoreAway) || 0;
+
+                const goalsFatti = isHome ? scoreHome : scoreAway;
+                const goalsSubiti = isHome ? scoreAway : scoreHome;
+
+                if (goalsFatti > goalsSubiti) return { label: 'V', color: '#22c55e' }; // Vittoria
+                if (goalsFatti === goalsSubiti) return { label: 'P', color: '#94a3b8' }; // Pareggio
+                return { label: 'S', color: '#ef4444' }; // Sconfitta
+            });
+
+            // 4. Salviamo tutto nello stato globale della modale
             setSelectedTeamData({
                 name: teamName,
                 matches: teamMatches,
@@ -535,7 +620,6 @@ const Dashboard = () => {
 
         } catch (error) {
             console.error("Errore critico nel calcolo del tabellino:", error);
-            // Fallback di sicurezza: apre comunque la modale mostrando i dati parziali senza far crashare la pagina
             setSelectedTeamData({
                 name: teamName,
                 matches: [],
@@ -547,6 +631,9 @@ const Dashboard = () => {
             setShowTeamModal(true);
         }
     };
+
+
+
     return (
         <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa', fontFamily: '"Segoe UI", Roboto, sans-serif' }}>
 
@@ -899,17 +986,21 @@ const Dashboard = () => {
                                                     <th className="py-3 text-center" style={{ width: '70px' }}>Rank</th>
                                                     <th className="py-3">Club</th>
                                                     <th className="py-3 text-center" style={{ width: '120px' }}>Punti Totali</th>
+                                                    <th className="py-3 text-center" style={{ width: '120px' }}>Gol Fatti</th>
+                                                    <th className="py-3 text-center" style={{ width: '120px' }}>Gol Subiti</th>
+                                                    <th className="py-3 text-center" style={{ width: '120px' }}>Differenza Reti</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {standings.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="3" className="text-muted text-center py-4 bg-light italic">
+                                                        <td colSpan="5" className="text-muted text-center py-4 bg-light italic">
                                                             Nessuna partita registrata. Compila i risultati nel tabellone gare per muovere la classifica.
                                                         </td>
                                                     </tr>
                                                 ) : (
                                                     standings.map((row, index) => (
+
                                                         <tr key={row.teamId || index} className="border-bottom bg-white">
                                                             <td className="text-center py-3 fw-bold text-secondary">
                                                                 {index + 1 === 1 ? '🥇' : index + 1 === 2 ? '🥈' : index + 1 === 3 ? '🥉' : `${index + 1}°`}
@@ -920,6 +1011,9 @@ const Dashboard = () => {
                                                                     {row.points} PT
                                                                 </Badge>
                                                             </td>
+                                                            <td className="text-center py-3 fw-bold text-success">{row.goalsFor || 0}</td>
+                                                            <td className="text-center py-3 fw-bold text-danger">{row.goalsAgainst || 0}</td>
+                                                            <td className="text-center py-3 fw-bold text-danger">{row.goalDifference || 0}</td>
                                                         </tr>
                                                     ))
                                                 )}
@@ -1236,6 +1330,9 @@ const Dashboard = () => {
                 </Modal.Body>
             </Modal>
 
+
+
+
             {/* ❌ MODAL GRAFICA DI ERRORE min 3 squadre */}
             <Modal
                 show={showMinTeamsModal}
@@ -1265,21 +1362,23 @@ const Dashboard = () => {
             </Modal>
 
 
-                       {/* 🏆 MODAL TRIONFO VINCITORE TORNEO */}
-                       <Modal 
-                show={showWinnerModal} 
-                onHide={() => setShowWinnerModal(false)} 
-                centered 
+
+
+            {/* 🏆 MODAL TRIONFO VINCITORE TORNEO */}
+            <Modal
+                show={showWinnerModal}
+                onHide={() => setShowWinnerModal(false)}
+                centered
                 backdrop="static" // Impedisce di chiuderla cliccando fuori, costringe a godersi il trionfo!
                 className="rounded-4 overflow-hidden"
             >
                 <Modal.Body className="p-5 bg-dark text-white text-center" style={{ borderRadius: '16px', border: '3px solid #eab308' }}>
-                    
+
                     {/* Effetto Corona / Trofeo */}
                     <div className="mb-3 animate-bounce" style={{ fontSize: '70px' }}>
                         👑
                     </div>
-                    
+
                     <h2 className="fw-black text-uppercase tracking-wider text-warning mb-1" style={{ fontWeight: 900, fontSize: '28px' }}>
                         Campioni del Torneo!
                     </h2>
@@ -1290,28 +1389,29 @@ const Dashboard = () => {
                     {/* Box Squadra Vincitrice */}
                     <div className="bg-black bg-opacity-40 p-4 rounded-4 mb-4 border border-warning border-opacity-20 shadow-lg">
                         {tournamentWinner?.logo && (
-                            <img 
-                                src={tournamentWinner.logo} 
-                                alt="Logo Campione" 
-                                className="img-fluid mb-3 rounded-circle border border-warning p-1" 
+                            <img
+                                src={tournamentWinner.logo}
+                                alt="Logo Campione"
+                                className="img-fluid mb-3 rounded-circle border border-warning p-1"
                                 style={{ width: '80px', height: '80px', objectFit: 'cover' }}
                             />
                         )}
                         <h3 className="fw-bold text-white text-uppercase m-0 tracking-wide">
+                            <span>IL VINCITORE DEL TORNEO E'</span> <br />
                             {tournamentWinner?.name || 'Squadra Campione'}
                         </h3>
                         <span className="badge bg-warning text-dark fw-black font-monospace mt-2 px-3 py-1.5 rounded-pill" style={{ fontSize: '14px' }}>
-                            🥇 {tournamentWinner?.points || 0} Punti
+                            <span>TOTALE</span>  🥇 {tournamentWinner?.points || 0} Punti
                         </span>
                     </div>
 
-                    <p className="text-muted small px-3 mb-4">
+                    <p className="text-white small px-3 mb-4">
                         Il calendario è stato completato con successo. Tutte le partite sono state disputate e i risultati sono ufficiali.
                     </p>
 
                     {/* Tasto per chiudere */}
-                    <Button 
-                        variant="warning" 
+                    <Button
+                        variant="warning"
                         className="fw-bold w-100 py-2.5 rounded-pill text-uppercase tracking-wider shadow"
                         style={{ backgroundColor: '#eab308', border: 'none', color: '#000', fontSize: '13px' }}
                         onClick={() => setShowWinnerModal(false)}
@@ -1320,6 +1420,9 @@ const Dashboard = () => {
                     </Button>
                 </Modal.Body>
             </Modal>
+
+
+
 
 
             {/* 🛡️ MODAL TABELLINO / SCHEDA COMPLETA SQUADRA */}
@@ -1391,9 +1494,14 @@ const Dashboard = () => {
                             {!selectedTeamData?.marcatori || selectedTeamData.marcatori.length === 0 ? (
                                 <span className="text-muted small italic">Nessun marcatore registrato</span>
                             ) : (
-                                selectedTeamData.marcatori.map((player, idx) => (
+                                Object.entries(
+                                    selectedTeamData.marcatori.reduce((acc, player) => {
+                                        acc[player] = (acc[player] || 0) + 1; // Conta i gol per giocatore
+                                        return acc;
+                                    }, {})
+                                ).map(([player, gol], idx) => (
                                     <span key={idx} className="badge bg-secondary bg-opacity-50 text-white font-monospace px-2 py-1.5 rounded-2 small">
-                                        ⚽ {player}
+                                        ⚽ {player} - {gol} gol
                                     </span>
                                 ))
                             )}
@@ -1470,8 +1578,83 @@ const Dashboard = () => {
                         style={{ backgroundColor: '#ef4444', border: 'none', fontSize: '13px' }}
                         onClick={() => setShowDuplicateModal(false)}
                     >
-                        Ho Capito, Modifica ✍️
+                        Modifica ✍️
                     </Button>
+                </Modal.Body>
+            </Modal>
+
+            {/* ⚔️ MODALE ELENCO SPAREGGIO - COMPATIBILE CON 2 O PIÙ SQUADRE */}
+            <Modal
+                show={showPlayoffModal}
+                onHide={() => setShowPlayoffModal(false)}
+                centered
+                backdrop="static"
+            >
+                <Modal.Body className="p-0 border-0 rounded-4 overflow-hidden">
+                    {/* Header Emozionale Rosso */}
+                    <div className="bg-danger p-4 text-center text-white shadow-sm">
+                        <div className="display-4 mb-2">⚔️</div>
+                        <h2 className="fw-bold text-uppercase m-0 tracking-wider">
+                            Spareggio Richiesto!
+                        </h2>
+                        <p className="small text-white-50 m-0 text-uppercase">Arrivo a Pari Merito Assoluto</p>
+                    </div>
+
+                    {/* Corpo della modale con sfondo scuro */}
+                    <div className="bg-dark p-4 text-center">
+                        <p className="text-white-50 small text-uppercase tracking-widest mb-3">
+                            Squadre qualificate alla fase di spareggio ({playoffPoints} Punti):
+                        </p>
+
+                        {/* 🔥 ELENCO DINAMICO DELLE SQUADRE IN SPAREGGIO */}
+                        <div className="d-flex flex-column gap-2 mb-4">
+                            {playoffTeams.map((squadra, index) => (
+                                <div
+                                    key={index}
+                                    className="d-flex align-items-center justify-content-between bg-black bg-opacity-30 p-3 rounded-3 border border-secondary border-opacity-25"
+                                >
+                                    <div className="d-flex align-items-center gap-3">
+                                        {squadra.logo ? (
+                                            <img
+                                                src={squadra.logo}
+                                                alt={squadra.name}
+                                                className="img-fluid rounded-circle border border-danger p-1 shadow-sm"
+                                                style={{ width: '45px', height: '45px', objectFit: 'cover' }}
+                                            />
+                                        ) : (
+                                            <div className="bg-secondary rounded-circle d-flex align-items-center justify-content-center text-white" style={{ width: '45px', height: '45px', fontSize: '18px' }}>
+                                                🛡️
+                                            </div>
+                                        )}
+                                        <span className="fw-bold text-white h5 m-0 text-uppercase">
+                                            {squadra.name}
+                                        </span>
+                                    </div>
+
+                                    {/* Badge della posizione d'onore */}
+                                    <span className="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-20 px-2.5 py-1.5 rounded-pill small fw-bold">
+                                        Fase Finale
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Messaggio di Regolamento */}
+                        <div className="p-3 rounded-3 bg-black bg-opacity-50 border border-secondary border-opacity-10 mb-4 text-start">
+                            <p className="text-secondary small m-0 lh-base">
+                                Questi club hanno terminato la stagione regolare con gli stessi punti e gli stessi criteri generali. Saranno necessari dei match di <strong>spareggio ufficiale</strong> per decretare il campione indiscusso del torneo.
+                            </p>
+                        </div>
+
+                        {/* Bottone unico */}
+                        <Button
+                            variant="danger"
+                            className="w-100 py-3 rounded-pill fw-bold text-uppercase border-0 shadow"
+                            onClick={() => setShowPlayoffModal(false)}
+                        >
+                            OK, Genera il Tabellone 🏟️
+                        </Button>
+                    </div>
                 </Modal.Body>
             </Modal>
 

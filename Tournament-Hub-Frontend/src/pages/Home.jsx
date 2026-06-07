@@ -190,10 +190,6 @@ const Home = () => {
                                                         {typeof t.userId === 'object' && t.userId?.email ? t.userId.email : 'Admin Hub'}
                                                     </span>
                                                 </div>
-
-
-
-
                                             </div>
                                         </div>
 

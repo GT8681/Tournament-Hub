@@ -30,6 +30,16 @@ exports.generateCalendar = async (req, res) => {
           scoreAway: 0
         });
         generatedMatches.push(await newMatch.save());
+          // Partita di ritorno
+          const matchRitorno = new Match({
+            tournament: tournamentId,
+            teamHome: teams[j],
+            teamAway: teams[i],
+            status: 'DA_GIOCARE',
+            scoreHome: 0,
+            scoreAway: 0
+          });
+          generatedMatches.push(await matchRitorno.save());
       }
     }
     const populatedMatches = await Match.find({ tournament: tournamentId })
