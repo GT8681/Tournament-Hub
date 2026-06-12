@@ -6,31 +6,26 @@ import Home from './pages/Home';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Register from './pages/Register';
+import ProfilePage from './components/Profile'; 
 import Footer from './components/footer/Footer';
-
-
-
-
 
 function App() {
 
   // 🏆 STATO UNICO E REALE: Conterrà i tornei scaricati dal database via API
   const [tournaments, setTournaments] = useState([]);
+  
   // Stato dell'utente con controllo iniziale su localStorage
   const [user, setUser] = useState(localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')) : null);
-
 
   // Funzione per aggiornare lo stato globale dei tornei (usata dalla Dashboard dopo le chiamate API)
   const handleTournamentsUpdate = (updatedTournaments) => {
     setTournaments(updatedTournaments);
   };
 
-
-  // 2. Creiamo la funzione per caricare i tornei usando il servizio pubblico
   // 🌍 Funzione per scaricare i tornei di tutti gli utenti dal database
   const loadGlobalTournaments = async () => {
     try {
-      // 🚀 Chiamiamo il servizio che usa l'istanza 'api' di axios
+      // Chiamiamo il servizio che usa l'istanza 'api' di axios
       const data = await getPublicTournaments();
 
       if (Array.isArray(data)) {
@@ -49,11 +44,7 @@ function App() {
     }
   };
 
-
-
-
-
-  // Al caricamento dell'app, sincronizziamo l'utente se presente nel browser
+  // Al caricamento dell'app, sincronizziamo l'utente e carichiamo i tornei pubblici
   useEffect(() => {
     loadGlobalTournaments();
     const savedUser = localStorage.getItem('user');
@@ -62,29 +53,27 @@ function App() {
     }
   }, []);
 
-
-
-  // Funzione per gestire il Logout
+  // Funzione per gestire il Logout centralizzato
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    window.location.href = '/'; 
   };
 
   return (
     <Router>
+      {/* Usiamo bg-light (o la tua classe dark personalizzata) come sfondo di base */}
       <div className="app-container bg-light min-vh-100">
         
-        {/* Passiamo l'utente e la funzione di logout alla Navbar */}
+        {/* 🟢 NAVBAR GLOBALE: Visibile in ogni pagina dell'applicazione */}
         <Navbar user={user} onLogout={handleLogout} />
 
         <Routes>
-
           {/* Home pubblica */}
           <Route path="/" element={<Home tournaments={tournaments} />} />
 
-          {/* DASHBOARD: Accetta sia l'accesso normale, sia l'accesso a un torneo specifico tramite /:id */}
-
+          {/* DASHBOARD PROTEGGE: Accetta sia l'accesso normale, sia l'accesso a un torneo specifico tramite /:id */}
           <Route
             path="/dashboard"
             element={user ? <Dashboard /> : <Navigate to="/login" />}
@@ -94,16 +83,22 @@ function App() {
             element={user ? <Dashboard onTournamentsUpdate={handleTournamentsUpdate} /> : <Navigate to="/login" />}
           />
 
+          {/* 🛡️ ROTTA PROFILO PROTETTA */}
+          <Route 
+            path="/profile" 
+            element={user ? <ProfilePage /> : <Navigate to="/login" />} 
+          />
+
+          {/* ROTTE DI AUTENTICAZIONE */}
           <Route path="/login" element={!user ? <Login onLoginSuccess={setUser} /> : <Navigate to="/dashboard" />} />
           <Route path="/register" element={!user ? <Register /> : <Navigate to="/dashboard" />} />
         </Routes>
+
+        {/* FOOTER GLOBALE */}
         <Footer />
       </div>
-    </Router >
-
-
+    </Router>
   );
-
 }
 
 export default App;

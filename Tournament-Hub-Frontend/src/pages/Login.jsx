@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, Card, Form, Button, Alert } from 'react-bootstrap';
+import { Container, Card, Form, Button, Alert,Nav} from 'react-bootstrap';
 import { useNavigate, Link } from 'react-router-dom';
 import { loginUser } from '../services/api';
 import './Login.css';
@@ -104,6 +104,11 @@ const Login = ({ onLoginSuccess }) => {
             >
               {success ? 'Caricamento...' : 'Accedi'}
             </Button>
+            <div className='text-center mt-3 bg-primary rounded-3 py-1 fw-bold '>
+
+                 <Nav.Link as={Link} to="/" state={null}>HOME</Nav.Link>
+            </div>
+           
           </Form>
 
           <div className="text-center mt-4">

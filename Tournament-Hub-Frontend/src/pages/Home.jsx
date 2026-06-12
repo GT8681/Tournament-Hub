@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Row, Col, Button, Card, Navbar, Badge, Spinner } from 'react-bootstrap';
+import { Container, Row, Col, Button, Card, Badge, Spinner } from 'react-bootstrap';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getPublicTournaments } from '../services/api';
+import Navbar from '../components/Navbar'; // 🚀 IMPORT DEL COMPONENTE NAVBAR GLOBALE
+import AccessDeniedModal from '../components/Modal/AccessDenieModal';
 
 const Home = () => {
     const navigate = useNavigate();
@@ -10,12 +12,24 @@ const Home = () => {
     const [publicTournaments, setPublicTournaments] = useState([]);
     const [loading, setLoading] = useState(false);
 
-
+    // Stati per la gestione della modale di blocco
+    const [showDeniedModal, setShowDeniedModal] = useState(false);
+    const [selectedTournamentName, setSelectedTournamentName] = useState('');
 
     const savedUser = localStorage.getItem('user');
     const isLoggedIn = savedUser ? true : false;
 
-    // Dati mockati per la sezione Top Players (in futuro potrai collegarli al backend)
+    // Parsiamo l'oggetto user dal localStorage se esiste per passarlo alla Navbar e fare i controlli
+    const currentUser = savedUser ? JSON.parse(savedUser) : null;
+
+    // Finto Logout locale interno alla Home se serve pulire lo stato al volo
+    const handleLogout = () => {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.reload(); // Ricarica la pagina per resettare gli stati dell'app
+    };
+
+    // Dati mockati per la sezione Top Players
     const topPlayers = [
         { id: 1, name: "Alessandro Rossi", team: "FC Internazionale", goals: 12, Role: "Attaccante", mvp: 4 },
         { id: 2, name: "Marco Bianchi", team: "Milan Club", goals: 9, Role: "Centrocampista", mvp: 3 },
@@ -56,29 +70,11 @@ const Home = () => {
         }
     };
 
+
     return (
         <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', fontFamily: '"Segoe UI", Roboto, sans-serif', backgroundColor: '#f8f9fa' }}>
 
-            {/* 1️⃣ NAVBAR MODERNA */}
-            <Navbar bg="dark" variant="dark" expand="lg" className="py-3 sticky-top shadow" style={{ borderBottom: '4px solid #00d6fd' }}>
-                <Container>
-                    <Navbar.Brand className="fw-extrabold fs-3 d-flex align-items-center gap-2" style={{ cursor: 'pointer', letterSpacing: '0.5px', fontWeight: 800 }} onClick={() => navigate('/')}>
-                        <span style={{ color: '#00d6fd' }}>🏆</span> TOURNAMENT<span style={{ color: '#00d6fd' }}>HUB</span>
-                    </Navbar.Brand>
-                    <div className="d-flex gap-3">
-                        {isLoggedIn ? (
-                            <Button variant="info" className="fw-bold text-dark px-4 rounded-pill shadow-sm" onClick={() => navigate('/dashboard')}>
-                                Pannello Gestore ⚙️
-                            </Button>
-                        ) : (
-                            <>
-                                <Button variant="outline-light" className="fw-bold px-4 rounded-pill" onClick={() => navigate('/login')}>Accedi</Button>
-                                <Button variant="info" className="fw-bold text-dark px-4 rounded-pill shadow-sm" onClick={() => navigate('/register')}>Registrati</Button>
-                            </>
-                        )}
-                    </div>
-                </Container>
-            </Navbar>
+
 
             {/* 2️⃣ HERO SECTION SPORTIVA */}
             <div className="text-white text-center py-5 d-flex align-items-center" style={{
@@ -197,10 +193,42 @@ const Home = () => {
                                             variant="dark"
                                             className="w-100 fw-bold py-2.5 mt-2 shadow-sm rounded-pill d-flex align-items-center justify-content-center gap-2"
                                             style={{ backgroundColor: '#1e293b', border: 'none' }}
-                                            onClick={() => navigate('/dashboard', { state: { tournament: t } })}
+                                            onClick={() => {
+                                                // 1. Estrazione sicura dell'ID del creatore del torneo
+                                                let tournamentCreatorId = "";
+                                                if (t.userId && typeof t.userId === 'object') {
+                                                    tournamentCreatorId = String(t.userId._id || t.userId.id || "");
+                                                } else if (t.userId) {
+                                                    tournamentCreatorId = String(t.userId);
+                                                }
+                                            
+                                                // 2. Estrazione super flessibile dell'ID dell'utente loggato
+                                                // Controlliamo se l'ID è dentro _id, dentro id, o se currentUser è direttamente una stringa ID
+                                                let currentUserId = "";
+                                                if (currentUser) {
+                                                    if (typeof currentUser === 'object') {
+                                                        currentUserId = String(currentUser._id || currentUser.id || currentUser.userId || "");
+                                                    } else if (typeof currentUser === 'string') {
+                                                        currentUserId = currentUser;
+                                                    }
+                                                }
+                                                // 3. Verifica reale (confronto tra stringhe pulite)
+                                                const isOwner = currentUserId && tournamentCreatorId && (currentUserId === tournamentCreatorId);
+                                            
+                                                if (isOwner) {
+                                                    // Se combaciano, accedi alla dashboard
+                                                    navigate('/dashboard', { state: { tournament: t } });
+                                                } else {
+                                                    // Altrimenti blocca l'accesso
+                                                    setSelectedTournamentName(t.name);
+                                                    setShowDeniedModal(true);
+                                                }
+                                            }}
+                                            
                                         >
                                             Visualizza Live Hub 📊
                                         </Button>
+
                                     </Card.Body>
                                 </Card>
                             </Col>
@@ -209,7 +237,7 @@ const Home = () => {
                 )}
             </Container>
 
-            {/* 5️⃣ NUOVA SEZIONE: SCOUTING & TOP PLAYERS */}
+            {/* 5️⃣ SCOUTING & TOP PLAYERS */}
             <div className="bg-light py-5 border-top border-bottom">
                 <Container>
                     <div className="mb-4 text-center text-md-start">
@@ -251,7 +279,7 @@ const Home = () => {
                 </Container>
             </div>
 
-            {/* 6️⃣ NUOVA SEZIONE: CALL TO ACTION REGISTRAZIONE ATLETI */}
+            {/* 6️⃣ CALL TO ACTION REGISTRAZIONE ATLETI */}
             <Container className="py-5 text-center">
                 <Card className="border-0 shadow-sm text-white py-5 px-4 rounded-4" style={{ background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)', position: 'relative', overflow: 'hidden' }}>
                     <div style={{ position: 'absolute', right: '-10%', bottom: '-20%', width: '30%', height: '150%', background: 'rgba(0, 214, 253, 0.04)', transform: 'rotate(45deg)', pointerEvents: 'none' }}></div>
@@ -287,7 +315,7 @@ const Home = () => {
                         </Col>
                         <Col md={4}>
                             <div className="p-3">
-                                <div className="fs-1 mb-2 text-info">🔐</div>
+                                <div className="fs-1 mb-2 text-info">⚙️</div>
                                 <h5 className="fw-bold text-dark">Accesso Riservato</h5>
                                 <p className="text-muted small m-0">Gli spettatori leggono i risultati pubblicamente in tempo reale, mentre solo l'organizzatore ha le chiavi di modifica.</p>
                             </div>
@@ -302,6 +330,13 @@ const Home = () => {
                     <small>© 2026 TOURNAMENTHUB — Il software gestionale definitivo per ASD, Leghe Indipendenti e Tornei Aziendali.</small>
                 </Container>
             </footer>
+
+            {/* 🛡️ INIEZIONE DELLA MODALE DI BLOCCO IN FONDO */}
+            <AccessDeniedModal
+                show={showDeniedModal}
+                onHide={() => setShowDeniedModal(false)}
+                tournamentName={selectedTournamentName}
+            />
         </div>
     );
 };

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Container, Card, Form, Button, Toast, ToastContainer } from 'react-bootstrap';
+import { Container, Card, Form, Button, Toast, ToastContainer,Nav } from 'react-bootstrap';
 import { useNavigate, Link } from 'react-router-dom';
 import { registerUser } from '../services/api';
 import './Login.css';
@@ -20,7 +20,7 @@ const Register = () => {
 
     try {
       await registerUser({ name, email, password });
-      
+
       setToastType('success');
       setToastMessage('Registrazione completata con successo! Ti stiamo trasferendo al login...');
       setShowToast(true);
@@ -42,14 +42,14 @@ const Register = () => {
 
   return (
     <Container className="d-flex align-items-center justify-content-center login-wrapper">
-      
+
       {/* TOAST DINAMICO (Verde per successo, Rosso per errore) */}
       <ToastContainer position="top-end" className="p-3" style={{ zIndex: 1050 }}>
-        <Toast 
-          bg={toastType} 
-          onClose={() => setShowToast(false)} 
-          show={showToast} 
-          delay={3000} 
+        <Toast
+          bg={toastType}
+          onClose={() => setShowToast(false)}
+          show={showToast}
+          delay={3000}
           autohide
         >
           <Toast.Header>
@@ -75,9 +75,9 @@ const Register = () => {
           <Form onSubmit={handleSubmit}>
             <Form.Group className="mb-3" controlId="formBasicName">
               <Form.Label className="fw-semibold custom-label">Nome Completo</Form.Label>
-              <Form.Control 
-                type="text" 
-                placeholder="Inserisci il tuo nome..." 
+              <Form.Control
+                type="text"
+                placeholder="Inserisci il tuo nome..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="custom-input"
@@ -87,9 +87,9 @@ const Register = () => {
 
             <Form.Group className="mb-3" controlId="formBasicEmail">
               <Form.Label className="fw-semibold custom-label">Indirizzo Email</Form.Label>
-              <Form.Control 
-                type="email" 
-                placeholder="esempio@scout.com" 
+              <Form.Control
+                type="email"
+                placeholder="esempio@scout.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="custom-input"
@@ -99,9 +99,9 @@ const Register = () => {
 
             <Form.Group className="mb-4" controlId="formBasicPassword">
               <Form.Label className="fw-semibold custom-label">Password</Form.Label>
-              <Form.Control 
-                type="password" 
-                placeholder="Scegli una password..." 
+              <Form.Control
+                type="password"
+                placeholder="Scegli una password..."
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="custom-input"
@@ -110,8 +110,12 @@ const Register = () => {
             </Form.Group>
 
             <Button variant="warning" type="submit" className="w-100 fw-bold py-2 btn-login shadow-sm">
-              Registrati
+              REGISTRATI
             </Button>
+            <div className='text-center mt-3 bg-primary rounded-3 py-1 fw-bold'>
+
+              <Nav.Link as={Link} to="/" state={null}>HOME</Nav.Link>
+            </div>
           </Form>
 
           <div className="text-center mt-4">
