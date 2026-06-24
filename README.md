@@ -48,3 +48,8 @@ src/
 │   └── api.js                   # Configurazione Axios e chiamate endpoint
 ├── App.jsx                      # Router centrale e stati globali
 └── main.jsx
+
+
+Link al Progetto:
+- FrontEnd(Live Vercell) : tournament-hub-ten.vercel.app
+- BackEnd(API su Render) : https://tournament-hub-backend-cbuk.onrender.com
