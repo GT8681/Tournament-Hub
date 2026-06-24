@@ -23,7 +23,7 @@ app.use(express.json());
 
 // Usa le rotte
 app.use('/api/teams', teamRoutes);
-app.use('/api/tournaments', tournamentRoutes);
+app.use('/tournaments', tournamentRoutes);
 app.use('/api/matches', matchRoutes);
 
 // Middleware per le rotte di autenticazione
