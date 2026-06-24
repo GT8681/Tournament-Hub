@@ -1,11 +1,12 @@
 import axios from 'axios';
 
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const BASE_URL = "https://tournament-hub-backend-cbuk.onrender.com/api";
+
 
 // 1. Creiamo l'istanza con l'URL di base del tuo server
 const API = axios.create({
-  baseURL: API_URL, 
+  baseURL: BASE_URL, 
 });
 
 // 2. 🔥 INTERCEPTOR ROBUSTO CON LOG DI CONTROLLO
