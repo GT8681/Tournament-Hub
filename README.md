@@ -1,9 +1,11 @@
-# Tournament-Hub
+                                                     # Tournament-Hub
+
+ 
 # 🏆 TournamentHub - Front-End
 
 **TournamentHub** è una piattaforma web premium progettata per la gestione digitale di tornei calcistici e per lo scouting di atleti. L'applicazione permette agli organizzatori (ASD, leghe indipendenti, tornei aziendali) di configurare eventi, gestire squadre e aggiornare i risultati in tempo reale, offrendo al contempo una vetrina pubblica per osservatori e calciatori in cerca di visibilità.
 
----
+-----------------------------------------------------------------------------------------------------------------------------------------
 
 ## 🚀 Funzionalità Principali
 
@@ -14,7 +16,7 @@
 * **Scouting Radar:** Sezione dedicata alle statistiche individuali dei calciatori (Gol, MVP) per creare un passaporto sportivo digitale.
 * **Profilo Locale Fallback:** Gestione del profilo utente sincronizzata via `localStorage` per garantire l'operatività dell'interfaccia anche in configurazioni di backend isolate.
 
----
+----------------------------------------------------------------------------------------------------------------------------------------
 
 ## 🛠️ Tech Stack
 
@@ -27,7 +29,7 @@ Il frontend è sviluppato utilizzando le seguenti tecnologie:
 * **Stile:** CSS3 Custom (Tema Premium Dark / Sportivo)
 * **Ambiente di Sviluppo:** Linux
 
----
+------------------------------------------------------------------------------------------------------------------------------------------
 
 ## 📂 Struttura delle Cartelle Principali
 
@@ -52,4 +54,4 @@ src/
 
 Link al Progetto:
 - FrontEnd(Live Vercell) : tournament-hub-ten.vercel.app
-- BackEnd(API su Render) : https://tournament-hub-backend-cbuk.onrender.com
+- BackEnd(API su Render) : https://tournament-hub-backend-cbuk.onrender.com/

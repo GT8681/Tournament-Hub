@@ -30,8 +30,8 @@ API.interceptors.request.use((config) => {
 // ==========================================
 // 🔐 1. ROTTE DI AUTENTICAZIONE (authRoutes)
 // ==========================================
-export const loginUser = (credentials) => API.post('/api/auth/login', credentials);
-export const registerUser = (userData) => API.post('/api/auth/register', userData);
+export const loginUser = (credentials) => API.post('/auth/login', credentials);
+export const registerUser = (userData) => API.post('/auth/register', userData);
 
 
 // ==========================================
