@@ -948,74 +948,80 @@ const Dashboard = () => {
                                             (() => {
                                                 const validMatches = matches.filter(m => m && typeof m === 'object');
 
-                                                // 1. Controlliamo se sul database esiste un campo per il round
-                                                const getRoundNumber = (m) => {
-                                                    const value = m.round ?? m.giornata ?? m.turno ?? m.matchday;
-                                                    return value !== undefined ? Number(value) : null;
-                                                };
-
-                                                const hasRounds = validMatches.some(m => getRoundNumber(m) !== null);
-
-                                                // 2. Calcoliamo quanti match ci sono per ogni singola giornata
-                                                // Se le squadre sono 3 o 4, i match per giornata sono rispettivamente 1 o 2
+                                                // 1. Calcoliamo quanti match ci sono in ogni singola giornata (es. 4 squadre = 2 match a giornata)
                                                 const totalTeams = teams && teams.length > 0 ? teams.length : 4;
                                                 const matchesPerGiornata = Math.floor(totalTeams / 2) || 1;
 
-                                                let gareAndata = [];
-                                                let gareRitorno = [];
+                                                // 2. Funzione per estrarre o calcolare la giornata del singolo match
+                                                const getRoundOfMatch = (m, index) => {
+                                                    const r = m.round ?? m.giornata ?? m.turno ?? m.matchday;
+                                                    return r !== undefined ? Number(r) : Math.ceil((index + 1) / matchesPerGiornata);
+                                                };
 
-                                                if (hasRounds) {
-                                                    const rounds = validMatches.map(m => getRoundNumber(m) || 0);
-                                                    const maxRound = Math.max(...rounds, 0);
-                                                    const metaRound = Math.ceil(maxRound / 2);
+                                                // 3. Determiniamo la metà delle giornate totali per separare Andata e Ritorno
+                                                const totaleMatch = validMatches.length;
+                                                const totaleGiornate = Math.ceil(totaleMatch / matchesPerGiornata);
+                                                const metaGiornate = Math.ceil(totaleGiornate / 2);
 
-                                                    gareAndata = validMatches.filter(m => (getRoundNumber(m) || 0) <= metaRound);
-                                                    gareRitorno = validMatches.filter(m => (getRoundNumber(m) || 0) > metaRound);
-                                                } else {
-                                                    // Se manca il round, dividiamo a metà l'array totale dei match
-                                                    const metaIndex = Math.ceil(validMatches.length / 2);
-                                                    gareAndata = validMatches.slice(0, metaIndex);
-                                                    gareRitorno = validMatches.slice(metaIndex);
-                                                }
+                                                // 4. Raggruppiamo i match per numero di Giornata ({ '1': [...], '2': [...] })
+                                                const andataRaggruppata = {};
+                                                const ritornoRaggruppata = {};
 
-                                                // Funzione di rendering della singola riga del match
-                                                const renderMatchRow = (match, globalIndex) => {
+                                                validMatches.forEach((match, idx) => {
+                                                    const round = getRoundOfMatch(match, idx);
+                                                    if (round <= metaGiornate) {
+                                                        if (!andataRaggruppata[round]) andataRaggruppata[round] = [];
+                                                        andataRaggruppata[round].push(match);
+                                                    } else {
+                                                        if (!ritornoRaggruppata[round]) ritornoRaggruppata[round] = [];
+                                                        ritornoRaggruppata[round].push(match);
+                                                    }
+                                                });
+
+                                                // Funzione per renderizzare la singola riga del match
+                                                const renderMatchRow = (match) => {
                                                     if (!match) return null;
                                                     const homeName = match.teamHome?.name || match.teamHome?.nome || (typeof match.teamHome === 'string' ? match.teamHome : 'Squadra Casa');
                                                     const awayName = match.teamAway?.name || match.teamAway?.nome || (typeof match.teamAway === 'string' ? match.teamAway : 'Squadra Trasferta');
 
-                                                    // 🌟 FIX: Il calcolo della giornata ora si adatta al numero reale di partite per turno
-                                                    const roundVisual = getRoundNumber(match) ?? Math.collapse ?? Math.ceil((globalIndex + 1) / matchesPerGiornata);
-
                                                     return (
-                                                        <ListGroup.Item key={match._id || Math.random().toString()} className="d-flex justify-content-between align-items-center py-3 px-3 px-md-4 bg-white border-bottom align-middle match-item">
-                                                              <Badge bg="secondary" className="bg-opacity-10 text-secondary border small px-3 py-1.5 rounded text-uppercase" style={{ fontSize: '11px', minWidth: '100px' }}>
-                                                                    GIORNATA {roundVisual}
-                                                                </Badge>
-                                                            <div className="fw-bold text-end text-dark text-truncate text-capitalize fs-6" style={{ width: '35%' }}>
+                                                        <div key={match._id || Math.random().toString()} className="d-flex justify-content-between align-items-center py-2.5 px-3 bg-white border-bottom align-middle match-item">
+                                                            <div className="fw-bold text-end text-dark text-truncate text-capitalize fs-6" style={{ width: '38%' }}>
                                                                 {homeName}
                                                             </div>
-                                                            <div className="text-center d-flex align-items-center justify-content-center gap-2" style={{ width: '30%' }}>
-                                                              
+                                                            <div className="text-center d-flex align-items-center justify-content-center" style={{ width: '24%' }}>
                                                                 <Badge
                                                                     bg={match.status === 'FINITA' ? 'dark' : 'light'}
                                                                     text={match.status === 'FINITA' ? 'white' : 'dark'}
-                                                                    className={`px-3 py-2 fs-6 rounded-3 cursor-pointer border ${match.status !== 'FINITA' && 'text-muted'}`}
+                                                                    className={`px-3 py-1.5 fs-6 rounded-3 cursor-pointer border ${match.status !== 'FINITA' && 'text-muted'}`}
                                                                     style={{ minWidth: '70px', letterSpacing: '1px' }}
                                                                     onClick={() => openEditModal(match)}
                                                                 >
                                                                     {match.status === 'FINITA' ? `${match.scoreHome} - ${match.scoreAway}` : 'VS'}
                                                                 </Badge>
                                                             </div>
-                                                            <div className="fw-bold text-start text-dark text-truncate text-capitalize fs-6" style={{ width: '35%' }}>
+                                                            <div className="fw-bold text-start text-dark text-truncate text-capitalize fs-6" style={{ width: '38%' }}>
                                                                 {awayName}
                                                             </div>
-                                                            <Button variant="outline-secondary" size="sm" className="ms-2 rounded-circle border-0 p-1" onClick={() => openEditModal(match)} title="Inserisci Punteggio">
+                                                            <Button variant="outline-secondary" size="sm" className="ms-1 rounded-circle border-0 p-1" onClick={() => openEditModal(match)} title="Inserisci Punteggio">
                                                                 ✏️
                                                             </Button>
-                                                        </ListGroup.Item>
+                                                        </div>
                                                     );
                                                 };
+
+                                                // Funzione per renderizzare l'intero blocco della Giornata (Stile Contenitore)
+                                                const renderGiornataBlock = (giornataNum, matchArray, badgeColor) => (
+                                                    <div key={giornataNum} className="mb-4 bg-white rounded-3 border shadow-sm overflow-hidden">
+                                                        <div className={`bg-${badgeColor} bg-opacity-10 text-${badgeColor} px-3 py-2 fw-bold border-bottom d-flex justify-content-between align-items-center`}>
+                                                            <span className="text-uppercase tracking-wider small">📅 GIORNATA {giornataNum}</span>
+                                                            <Badge bg={badgeColor} className="rounded-pill bg-opacity-75">{matchArray.length} {matchArray.length === 1 ? 'Gara' : 'Gare'}</Badge>
+                                                        </div>
+                                                        <div className="divide-y">
+                                                            {matchArray.map(m => renderMatchRow(m))}
+                                                        </div>
+                                                    </div>
+                                                );
 
                                                 return (
                                                     <Row>
@@ -1025,15 +1031,14 @@ const Dashboard = () => {
                                                                 <div className="d-flex align-items-center gap-2 mb-3 px-2">
                                                                     <span className="fs-5">📊</span>
                                                                     <h5 className="fw-bold m-0 text-primary text-uppercase tracking-wide">Gare Andata</h5>
-                                                                    <Badge bg="primary" className="ms-auto rounded-pill">{gareAndata.length} Match</Badge>
                                                                 </div>
-                                                                <ListGroup variant="flush" className="rounded-3 border overflow-hidden shadow-sm">
-                                                                    {gareAndata.length === 0 ? (
-                                                                        <ListGroup.Item className="text-muted text-center py-4">Nessuna gara d'andata</ListGroup.Item>
-                                                                    ) : (
-                                                                        gareAndata.map((m, idx) => renderMatchRow(m, idx)) // Index globale da 0 a 2
-                                                                    )}
-                                                                </ListGroup>
+                                                                {Object.keys(andataRaggruppata).length === 0 ? (
+                                                                    <div className="text-muted text-center py-4 bg-white rounded-3 border">Nessuna gara d'andata</div>
+                                                                ) : (
+                                                                    Object.keys(andataRaggruppata)
+                                                                        .sort((a, b) => Number(a) - Number(b))
+                                                                        .map(giornata => renderGiornataBlock(giornata, andataRaggruppata[giornata], 'primary'))
+                                                                )}
                                                             </div>
                                                         </Col>
 
@@ -1043,15 +1048,14 @@ const Dashboard = () => {
                                                                 <div className="d-flex align-items-center gap-2 mb-3 px-2">
                                                                     <span className="fs-5">📊</span>
                                                                     <h5 className="fw-bold m-0 text-danger text-uppercase tracking-wide">Gare Ritorno</h5>
-                                                                    <Badge bg="danger" className="ms-auto rounded-pill">{gareRitorno.length} Match</Badge>
                                                                 </div>
-                                                                <ListGroup variant="flush" className="rounded-3 border overflow-hidden shadow-sm">
-                                                                    {gareRitorno.length === 0 ? (
-                                                                        <ListGroup.Item className="text-muted text-center py-4">Nessuna gara di ritorno generata</ListGroup.Item>
-                                                                    ) : (
-                                                                        gareRitorno.map((m, idx) => renderMatchRow(m, gareAndata.length + idx)) // Prosegue l'index globale da 3 in poi
-                                                                    )}
-                                                                </ListGroup>
+                                                                {Object.keys(ritornoRaggruppata).length === 0 ? (
+                                                                    <div className="text-muted text-center py-4 bg-white rounded-3 border">Nessuna gara di ritorno</div>
+                                                                ) : (
+                                                                    Object.keys(ritornoRaggruppata)
+                                                                        .sort((a, b) => Number(a) - Number(b))
+                                                                        .map(giornata => renderGiornataBlock(giornata, ritornoRaggruppata[giornata], 'danger'))
+                                                                )}
                                                             </div>
                                                         </Col>
                                                     </Row>
@@ -1060,6 +1064,8 @@ const Dashboard = () => {
                                         )}
                                     </div>
                                 )}
+
+
 
 
                                 {/* SEZIONE 3: CLASSIFICA */}
