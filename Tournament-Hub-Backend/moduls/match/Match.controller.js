@@ -10,39 +10,85 @@ const Tournament = require('../tournament/Tournament.schema');
 exports.generateCalendar = async (req, res) => {
   try {
     const { tournamentId } = req.params;
+    
+    // 1. Cancella i match vecchi di questo torneo
     await Match.deleteMany({ tournament: tournamentId });
+    
+    // 2. Recupera il torneo
     const tournament = await Tournament.findById(tournamentId);
     if (!tournament || !tournament.teams || tournament.teams.length === 0) {
       return res.status(404).json({ message: "Torneo non trovato o senza squadre iscritte." });
     }
 
-    const teams = tournament.teams;
-    const generatedMatches = [];
-  
-    for (let i = 0; i < teams.length; i++) {
-      for (let j = i + 1; j < teams.length; j++) {
-        const newMatch = new Match({
+    let teams = [...tournament.teams];
+    
+    // Se le squadre sono dispari, aggiungiamo un elemento "RIPOSO" per far quadrare i turni
+    if (teams.length % 2 !== 0) {
+      teams.push("RIPOSO");
+    }
+
+    const numSquadre = teams.length;
+    const giornateAndata = numSquadre - 1; // Numero di giornate del girone d'andata
+    const matchesToSave = [];
+
+    // Algoritmo di Berger (Round Robin) per distribuire le giornate in modo reale
+    for (let giornata = 0; giornata < giornateAndata; giornata++) {
+      for (let i = 0; i < numSquadre / 2; i++) {
+        const casaIndex = (giornata + i) % (numSquadre - 1);
+        let trasfertaIndex = (numSquadre - 1 - i + giornata) % (numSquadre - 1);
+
+        // La prima squadra rimane fissa, le altre ruotano
+        if (i === 0) {
+          trasfertaIndex = numSquadre - 1;
+        }
+
+        const teamCasa = teams[casaIndex];
+        const teamTrasferta = teams[trasfertaIndex];
+
+        // Saltiamo l'inserimento se una delle due squadre è il "RIPOSO"
+        if (teamCasa === "RIPOSO" || teamTrasferta === "RIPOSO") {
+          continue;
+        }
+
+        // Calcoliamo i numeri reali delle giornate (partendo da 1)
+        const numeroGiornataAndata = giornata + 1;
+        const numeroGiornataRitorno = numeroGiornataAndata + giornateAndata;
+
+        // Alterniamo casa/fuori casa ad ogni giornata per non far giocare una squadra sempre in casa
+        const invertiFattore = giornata % 2 === 0;
+        const finaleCasa = invertiFattore ? teamCasa : teamTrasferta;
+        const finaleTrasferta = invertiFattore ? teamTrasferta : teamCasa;
+
+        // 3. Genera il Match d'Andata
+        matchesToSave.push(new Match({
           tournament: tournamentId,
-          teamHome: teams[i],
-          teamAway: teams[j],
+          teamHome: finaleCasa,
+          teamAway: finaleTrasferta,
           status: 'DA_GIOCARE',
           scoreHome: 0,
-          scoreAway: 0
-        });
-        generatedMatches.push(await newMatch.save());
-          // Partita di ritorno
-          const matchRitorno = new Match({
-            tournament: tournamentId,
-            teamHome: teams[j],
-            teamAway: teams[i],
-            status: 'DA_GIOCARE',
-            scoreHome: 0,
-            scoreAway: 0
-          });
-          generatedMatches.push(await matchRitorno.save());
+          scoreAway: 0,
+          round: numeroGiornataAndata // Esempio: Giornata 1, 2, 3...
+        }));
+
+        // 4. Genera il Match di Ritorno (A parti invertite e spostato nella seconda metà del torneo)
+        matchesToSave.push(new Match({
+          tournament: tournamentId,
+          teamHome: finaleTrasferta, // Invertito!
+          teamAway: finaleCasa,      // Invertito!
+          status: 'DA_GIOCARE',
+          scoreHome: 0,
+          scoreAway: 0,
+          round: numeroGiornataRitorno // Esempio: Giornata 4, 5, 6...
+        }));
       }
     }
+
+    // Salviamo tutti i match nel database in un colpo solo (molto più veloce)
+    await Match.insertMany(matchesToSave);
+
+    // 5. Recupera i match appena creati popolando i nomi delle squadre
     const populatedMatches = await Match.find({ tournament: tournamentId })
+      .sort({ round: 1 }) // Li ordina dal primo turno all'ultimo
       .populate('teamHome', 'name')
       .populate('teamAway', 'name');
 
@@ -55,6 +101,7 @@ exports.generateCalendar = async (req, res) => {
     res.status(500).json({ message: "Errore durante la generazione", error: error.message });
   }
 };
+
 
 
 

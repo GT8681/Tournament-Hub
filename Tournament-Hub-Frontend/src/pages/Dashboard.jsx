@@ -364,7 +364,7 @@ const Dashboard = () => {
         setAwayScorersInput(new Array(match.scoreAway || 0).fill(''));
         setShowModal(true);
 
-    }; 
+    };
 
 
     const handleSaveResult = async () => {
@@ -400,83 +400,83 @@ const Dashboard = () => {
             setHomeScorersInput([]);
             setAwayScorersInput([]);
 
-                   // 2. Scarichiamo i dati freschi dal server
-        const dataMatches = await fetchTournamentData('matches');
-        const dataStandings = await fetchTournamentData('standings');
-        const dataTeams = await fetchTournamentData('teams');
+            // 2. Scarichiamo i dati freschi dal server
+            const dataMatches = await fetchTournamentData('matches');
+            const dataStandings = await fetchTournamentData('standings');
+            const dataTeams = await fetchTournamentData('teams');
 
-        if (dataStandings) {
-            setStandings(dataStandings);
-        }
-
-        
-        
-        // 🔥 TRUCCO: Se dataMatches è undefined, usiamo l'array 'matches' dello stato di React
-        const finalMatches = dataMatches || matches; 
-        const finalStandings = dataStandings || standings;
-        const finalTeams = dataTeams || teams || [];
-
-        if (!finalMatches || finalMatches.length === 0) {
-            console.log("Blocco: Nessun match trovato nemmeno nello stato locale.");
-            setLoading(false);
-            return;
-        }
-
-        // Filtriamo le partite non finite
-        const pendingMatches = finalMatches.filter(m => m._id !== selectedMatch._id && m.status !== 'FINITA');
-
-        // Se non ci sono più partite aperte, il torneo è finito!
-        if (pendingMatches.length === 0) {
-            
-
-            if (finalStandings && finalStandings.length > 0) {
-                const prima = finalStandings[0];
-                const maxPunti = prima.points || 0;
-                
-                const getDiff = (s) => {
-                    if (s.goalDifference !== undefined) return s.goalDifference;
-                    return (s.goalsFor || 0) - (s.goalsAgainst || 0);
-                };
-                
-                const maxDiff = getDiff(prima);
-                // Filtriamo tutte le squadre che hanno gli stessi punti e la stessa differenza reti della prima
-                const squadreInSpareggio = finalStandings.filter(s => {
-                    const punti = s.points || 0;
-                    const diff = getDiff(s);
-                    return punti === maxPunti && diff === maxDiff;
-                });
-                // ⚔️ CASO SPAREGGIO: Se sono 2 o più squadre
-                if (squadreInSpareggio.length > 1) {
-                    const listaSquadre = squadreInSpareggio.map(s => {
-                        const idSquadraClassifica = s.teamId || s.team;
-                        const teamIdString = typeof idSquadraClassifica === 'object' ? idSquadraClassifica?._id : idSquadraClassifica;
-                        const teamTrovato = finalTeams.find(t => t._id === teamIdString);
-
-                        return {
-                            name: teamTrovato ? teamTrovato.name : "Squadra Anonima",
-                            logo: teamTrovato ? teamTrovato.logo : null
-                        };
-                    });
-                    setPlayoffTeams(listaSquadre);
-                    setPlayoffPoints(maxPunti);
-                    setShowPlayoffModal(true); // 💥 APRE LA MODALE ROSSA
-                    setLoading(false);
-                    return;
-                }
-                // 🥇 CASO VINCITORE SINGOLO
-                const winner = finalStandings[0];
-                const idWinner = winner.teamId || winner.team;
-                const winnerIdString = typeof idWinner === 'object' ? idWinner?._id : idWinner;
-                const teamWinnerTrovato = finalTeams.find(t => t._id === winnerIdString);
-
-                setTournamentWinner({
-                    name: teamWinnerTrovato ? teamWinnerTrovato.name : "Squadra Campione",
-                    points: winner.points || 0,
-                    logo: teamWinnerTrovato ? teamWinnerTrovato.logo : null
-                });
-                setShowWinnerModal(true);
+            if (dataStandings) {
+                setStandings(dataStandings);
             }
-        } 
+
+
+
+            // 🔥 TRUCCO: Se dataMatches è undefined, usiamo l'array 'matches' dello stato di React
+            const finalMatches = dataMatches || matches;
+            const finalStandings = dataStandings || standings;
+            const finalTeams = dataTeams || teams || [];
+
+            if (!finalMatches || finalMatches.length === 0) {
+                console.log("Blocco: Nessun match trovato nemmeno nello stato locale.");
+                setLoading(false);
+                return;
+            }
+
+            // Filtriamo le partite non finite
+            const pendingMatches = finalMatches.filter(m => m._id !== selectedMatch._id && m.status !== 'FINITA');
+
+            // Se non ci sono più partite aperte, il torneo è finito!
+            if (pendingMatches.length === 0) {
+
+
+                if (finalStandings && finalStandings.length > 0) {
+                    const prima = finalStandings[0];
+                    const maxPunti = prima.points || 0;
+
+                    const getDiff = (s) => {
+                        if (s.goalDifference !== undefined) return s.goalDifference;
+                        return (s.goalsFor || 0) - (s.goalsAgainst || 0);
+                    };
+
+                    const maxDiff = getDiff(prima);
+                    // Filtriamo tutte le squadre che hanno gli stessi punti e la stessa differenza reti della prima
+                    const squadreInSpareggio = finalStandings.filter(s => {
+                        const punti = s.points || 0;
+                        const diff = getDiff(s);
+                        return punti === maxPunti && diff === maxDiff;
+                    });
+                    // ⚔️ CASO SPAREGGIO: Se sono 2 o più squadre
+                    if (squadreInSpareggio.length > 1) {
+                        const listaSquadre = squadreInSpareggio.map(s => {
+                            const idSquadraClassifica = s.teamId || s.team;
+                            const teamIdString = typeof idSquadraClassifica === 'object' ? idSquadraClassifica?._id : idSquadraClassifica;
+                            const teamTrovato = finalTeams.find(t => t._id === teamIdString);
+
+                            return {
+                                name: teamTrovato ? teamTrovato.name : "Squadra Anonima",
+                                logo: teamTrovato ? teamTrovato.logo : null
+                            };
+                        });
+                        setPlayoffTeams(listaSquadre);
+                        setPlayoffPoints(maxPunti);
+                        setShowPlayoffModal(true); // 💥 APRE LA MODALE ROSSA
+                        setLoading(false);
+                        return;
+                    }
+                    // 🥇 CASO VINCITORE SINGOLO
+                    const winner = finalStandings[0];
+                    const idWinner = winner.teamId || winner.team;
+                    const winnerIdString = typeof idWinner === 'object' ? idWinner?._id : idWinner;
+                    const teamWinnerTrovato = finalTeams.find(t => t._id === winnerIdString);
+
+                    setTournamentWinner({
+                        name: teamWinnerTrovato ? teamWinnerTrovato.name : "Squadra Campione",
+                        points: winner.points || 0,
+                        logo: teamWinnerTrovato ? teamWinnerTrovato.logo : null
+                    });
+                    setShowWinnerModal(true);
+                }
+            }
         } catch (err) {
             console.error("Errore durante il salvataggio dei risultati:", err);
         } finally {
@@ -924,7 +924,6 @@ const Dashboard = () => {
                                     </div>
                                 )}
 
-
                                 {/* SEZIONE 2: MATCH / CALENDARIO */}
                                 {activeSection === 'matches' && (
                                     <div>
@@ -937,7 +936,8 @@ const Dashboard = () => {
                                                 🔄 Rigenera Intero Calendario
                                             </Button>
                                         </div>
-                                        {matches.length === 0 ? (
+
+                                        {!matches || matches.length === 0 ? (
                                             <div className="text-center py-5 border border-dashed rounded-3 bg-light">
                                                 <p className="text-muted fw-semibold m-0">Calendario vuoto o non ancora generato.</p>
                                                 <Button variant="dark" size="sm" className="mt-3 fw-bold rounded-pill px-4" onClick={handleGenerateCalendar}>
@@ -945,35 +945,122 @@ const Dashboard = () => {
                                                 </Button>
                                             </div>
                                         ) : (
-                                            <ListGroup variant="flush" className="rounded-3 border overflow-hidden shadow-sm">
-                                                {matches.map((match) => (
-                                                    <ListGroup.Item key={match._id} className="d-flex justify-content-between align-items-center py-3 px-3 px-md-4 bg-white border-bottom align-middle match-item">
-                                                        <div className="fw-bold text-end text-dark text-truncate fs-6" style={{ width: '38%' }}>
-                                                            {match.teamHome?.name || match.teamHome?.nome || (typeof match.teamHome === 'string' ? match.teamHome : 'Squadra')}
-                                                        </div>
-                                                        <div className="text-center" style={{ width: '24%' }}>
-                                                            <Badge
-                                                                bg={match.status === 'FINITA' ? 'dark' : 'light'}
-                                                                text={match.status === 'FINITA' ? 'white' : 'dark'}
-                                                                className={`px-3 py-2 fs-6 rounded-3 cursor-pointer border ${match.status !== 'FINITA' && 'text-muted'}`}
-                                                                style={{ minWidth: '70px', letterSpacing: '1px' }}
-                                                                onClick={() => openEditModal(match)}
-                                                            >
-                                                                {match.status === 'FINITA' ? `${match.scoreHome} - ${match.scoreAway}` : 'VS'}
-                                                            </Badge>
-                                                        </div>
-                                                        <div className="fw-bold text-start text-dark text-truncate fs-6" style={{ width: '38%' }}>
-                                                            {match.teamAway?.name || match.teamAway?.nome || (typeof match.teamAway === 'string' ? match.teamAway : 'Squadra')}
-                                                        </div>
-                                                        <Button variant="outline-secondary" size="sm" className="ms-2 rounded-circle border-0 p-1" onClick={() => openEditModal(match)} title="Inserisci Punteggio">
-                                                            ✏️
-                                                        </Button>
-                                                    </ListGroup.Item>
-                                                ))}
-                                            </ListGroup>
+                                            (() => {
+                                                const validMatches = matches.filter(m => m && typeof m === 'object');
+
+                                                // 1. Controlliamo se sul database esiste un campo per il round
+                                                const getRoundNumber = (m) => {
+                                                    const value = m.round ?? m.giornata ?? m.turno ?? m.matchday;
+                                                    return value !== undefined ? Number(value) : null;
+                                                };
+
+                                                const hasRounds = validMatches.some(m => getRoundNumber(m) !== null);
+
+                                                // 2. Calcoliamo quanti match ci sono per ogni singola giornata
+                                                // Se le squadre sono 3 o 4, i match per giornata sono rispettivamente 1 o 2
+                                                const totalTeams = teams && teams.length > 0 ? teams.length : 4;
+                                                const matchesPerGiornata = Math.floor(totalTeams / 2) || 1;
+
+                                                let gareAndata = [];
+                                                let gareRitorno = [];
+
+                                                if (hasRounds) {
+                                                    const rounds = validMatches.map(m => getRoundNumber(m) || 0);
+                                                    const maxRound = Math.max(...rounds, 0);
+                                                    const metaRound = Math.ceil(maxRound / 2);
+
+                                                    gareAndata = validMatches.filter(m => (getRoundNumber(m) || 0) <= metaRound);
+                                                    gareRitorno = validMatches.filter(m => (getRoundNumber(m) || 0) > metaRound);
+                                                } else {
+                                                    // Se manca il round, dividiamo a metà l'array totale dei match
+                                                    const metaIndex = Math.ceil(validMatches.length / 2);
+                                                    gareAndata = validMatches.slice(0, metaIndex);
+                                                    gareRitorno = validMatches.slice(metaIndex);
+                                                }
+
+                                                // Funzione di rendering della singola riga del match
+                                                const renderMatchRow = (match, globalIndex) => {
+                                                    if (!match) return null;
+                                                    const homeName = match.teamHome?.name || match.teamHome?.nome || (typeof match.teamHome === 'string' ? match.teamHome : 'Squadra Casa');
+                                                    const awayName = match.teamAway?.name || match.teamAway?.nome || (typeof match.teamAway === 'string' ? match.teamAway : 'Squadra Trasferta');
+
+                                                    // 🌟 FIX: Il calcolo della giornata ora si adatta al numero reale di partite per turno
+                                                    const roundVisual = getRoundNumber(match) ?? Math.collapse ?? Math.ceil((globalIndex + 1) / matchesPerGiornata);
+
+                                                    return (
+                                                        <ListGroup.Item key={match._id || Math.random().toString()} className="d-flex justify-content-between align-items-center py-3 px-3 px-md-4 bg-white border-bottom align-middle match-item">
+                                                              <Badge bg="secondary" className="bg-opacity-10 text-secondary border small px-3 py-1.5 rounded text-uppercase" style={{ fontSize: '11px', minWidth: '100px' }}>
+                                                                    GIORNATA {roundVisual}
+                                                                </Badge>
+                                                            <div className="fw-bold text-end text-dark text-truncate text-capitalize fs-6" style={{ width: '35%' }}>
+                                                                {homeName}
+                                                            </div>
+                                                            <div className="text-center d-flex align-items-center justify-content-center gap-2" style={{ width: '30%' }}>
+                                                              
+                                                                <Badge
+                                                                    bg={match.status === 'FINITA' ? 'dark' : 'light'}
+                                                                    text={match.status === 'FINITA' ? 'white' : 'dark'}
+                                                                    className={`px-3 py-2 fs-6 rounded-3 cursor-pointer border ${match.status !== 'FINITA' && 'text-muted'}`}
+                                                                    style={{ minWidth: '70px', letterSpacing: '1px' }}
+                                                                    onClick={() => openEditModal(match)}
+                                                                >
+                                                                    {match.status === 'FINITA' ? `${match.scoreHome} - ${match.scoreAway}` : 'VS'}
+                                                                </Badge>
+                                                            </div>
+                                                            <div className="fw-bold text-start text-dark text-truncate text-capitalize fs-6" style={{ width: '35%' }}>
+                                                                {awayName}
+                                                            </div>
+                                                            <Button variant="outline-secondary" size="sm" className="ms-2 rounded-circle border-0 p-1" onClick={() => openEditModal(match)} title="Inserisci Punteggio">
+                                                                ✏️
+                                                            </Button>
+                                                        </ListGroup.Item>
+                                                    );
+                                                };
+
+                                                return (
+                                                    <Row>
+                                                        {/* COLONNA ANDATA */}
+                                                        <Col lg={6} className="mb-4">
+                                                            <div className="p-3 bg-light rounded-4 border shadow-sm h-100">
+                                                                <div className="d-flex align-items-center gap-2 mb-3 px-2">
+                                                                    <span className="fs-5">📊</span>
+                                                                    <h5 className="fw-bold m-0 text-primary text-uppercase tracking-wide">Gare Andata</h5>
+                                                                    <Badge bg="primary" className="ms-auto rounded-pill">{gareAndata.length} Match</Badge>
+                                                                </div>
+                                                                <ListGroup variant="flush" className="rounded-3 border overflow-hidden shadow-sm">
+                                                                    {gareAndata.length === 0 ? (
+                                                                        <ListGroup.Item className="text-muted text-center py-4">Nessuna gara d'andata</ListGroup.Item>
+                                                                    ) : (
+                                                                        gareAndata.map((m, idx) => renderMatchRow(m, idx)) // Index globale da 0 a 2
+                                                                    )}
+                                                                </ListGroup>
+                                                            </div>
+                                                        </Col>
+
+                                                        {/* COLONNA RITORNO */}
+                                                        <Col lg={6} className="mb-4">
+                                                            <div className="p-3 bg-light rounded-4 border shadow-sm h-100">
+                                                                <div className="d-flex align-items-center gap-2 mb-3 px-2">
+                                                                    <span className="fs-5">📊</span>
+                                                                    <h5 className="fw-bold m-0 text-danger text-uppercase tracking-wide">Gare Ritorno</h5>
+                                                                    <Badge bg="danger" className="ms-auto rounded-pill">{gareRitorno.length} Match</Badge>
+                                                                </div>
+                                                                <ListGroup variant="flush" className="rounded-3 border overflow-hidden shadow-sm">
+                                                                    {gareRitorno.length === 0 ? (
+                                                                        <ListGroup.Item className="text-muted text-center py-4">Nessuna gara di ritorno generata</ListGroup.Item>
+                                                                    ) : (
+                                                                        gareRitorno.map((m, idx) => renderMatchRow(m, gareAndata.length + idx)) // Prosegue l'index globale da 3 in poi
+                                                                    )}
+                                                                </ListGroup>
+                                                            </div>
+                                                        </Col>
+                                                    </Row>
+                                                );
+                                            })()
                                         )}
                                     </div>
                                 )}
+
 
                                 {/* SEZIONE 3: CLASSIFICA */}
                                 {activeSection === 'standings' && (
@@ -1484,6 +1571,8 @@ const Dashboard = () => {
                             </div>
                         </div>
                     </div>
+
+
 
                     {/* 🔥 NUOVA SEZIONE: ELENCO DEI MARCATORI REALI DELLA SQUADRA */}
                     <div className="mb-4 bg-black bg-opacity-10 p-2.5 rounded-3 border border-secondary border-opacity-20">
