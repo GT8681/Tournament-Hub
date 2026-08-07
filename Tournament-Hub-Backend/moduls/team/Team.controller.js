@@ -1,5 +1,5 @@
 const { createTeamService, getAllTeamsService } = require('../team/Team.service.js');
-const Team = require('./Team.schema'); // Assicurati che il percorso sia corretto
+const Team = require('./Team.schema');
 
 exports.createTeam = async (req, res) => {
   try {
@@ -28,7 +28,7 @@ exports.getAllTeams = async (req, res) => {
 exports.getTeamsByTournament = async (req, res) => {
   try {
     const { tournamentId } = req.params; // Prende l'ID passato nell'URL dal frontend
-    // 🔥 IL FILTRO REALE: Dobbiamo cercare solo i team che hanno quel tournamentId!
+  
     const teams = await Team.find({ tournamentId: tournamentId });
     res.status(200).json(teams);
   } catch (error) {

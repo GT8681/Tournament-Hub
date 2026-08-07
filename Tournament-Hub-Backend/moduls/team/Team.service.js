@@ -6,7 +6,7 @@ exports.createTeamService = async (teamData) => {
   // Controlla se la squadra esiste già
   const teamExists = await Team.findOne({ name });
   if (teamExists) {
-    throw new Error('TEAM_EXISTS'); // Lanciamo un errore specifico
+    throw new Error('TEAM_EXISTS'); 
   }
 
   // Crea e restituisce la squadra

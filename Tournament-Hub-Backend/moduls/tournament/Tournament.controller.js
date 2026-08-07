@@ -2,7 +2,7 @@ const {getStandingsService,getAllPublicTournaments}= require('./Tournament.servi
 
 const Tournament = require('./Tournament.schema');
 const Match = require('../match/Match.schema');
-const Team = require('../team/Team.schema'); // 🔥 Assicurati che il percorso verso il tuo Team schema sia corretto!
+const Team = require('../team/Team.schema'); 
 
 
 /**
@@ -28,7 +28,7 @@ exports.getPublicTournaments = async (req, res) => {
 // 🆕 1. PRENDERE SOLO I TORNEI DELL'UTENTE LOGGATO
 exports.getTournaments = async (req, res) => {
   try {
-    // req.user.id viene iniettato automaticamente dal middleware di autenticazione
+    
     const tournaments = await Tournament.find({ userId: req.user.id }).populate('teams');
     res.status(200).json(tournaments);
   } catch (error) {
@@ -40,9 +40,6 @@ exports.createTournament = async (req, res) => {
   try {
     const { name, localTeams } = req.body;
     const userId = req.user.id;
-
-    // 🔥 SICUREZZA 1: Se localTeams non esiste o non è un array, lo trasformiamo in un array vuoto
-    // Questo trucco impedisce l'errore "is not iterable"!
     const teamsArray = Array.isArray(localTeams) ? localTeams : [];
 
     if (teamsArray.length === 0) {
@@ -59,9 +56,8 @@ exports.createTournament = async (req, res) => {
 
     const teamIds = [];
 
-    // 🔥 Usiamo teamsArray (che siamo sicuri essere un array ciclabile)
     for (let teamName of teamsArray) {
-      if (!teamName) continue; // Salta se c'è un valore vuoto
+      if (!teamName) continue; 
       
       const newTeam = new Team({
         name: teamName.trim(), // Rimuove spazi vuoti inutili
@@ -105,7 +101,7 @@ exports.getTournamentById = async (req, res) => {
 
 
 // @desc    Ottieni la classifica in tempo reale di un torneo
-// @route   GET /api/tournaments/:tournamentId/standings
+
 exports.getTournamentStandings = async (req, res) => {
   try {
     const { tournamentId } = req.params;
@@ -121,7 +117,7 @@ exports.getTournamentStandings = async (req, res) => {
 };
 
 // @desc    Reset di un torneo (cancella tutti i match)
-// @route   POST /api/tournaments/:tournamentId/reset
+
 exports.resetTournament = async (req, res) => {
   try {
     const { tournamentId } = req.params;
@@ -140,7 +136,7 @@ exports.resetTournament = async (req, res) => {
 exports.deleteTournament = async (req, res) => {
   try {
     const { tournamentId } = req.params;
-    const userId = req.user.id; // Per sicurezza, cancelliamo solo se il torneo è dell'utente loggato
+    const userId = req.user.id; 
 
     // 1. Verifichiamo che il torneo esista e appartenga a questo utente
     const tournament = await Tournament.findOne({ _id: tournamentId, userId });
@@ -163,7 +159,6 @@ exports.deleteTournament = async (req, res) => {
 };
 
 
-// Aggiungi in fondo a Tournament.controller.js
 exports.updateTournamentStatus = async (req, res) => {
   try {
       const { tournamentId } = req.params;

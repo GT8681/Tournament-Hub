@@ -139,11 +139,8 @@ exports.deleteTournamentCompleteService = async (tournamentId) => {
   // 2. Cancella il torneo e restituisce il documento eliminato (se esisteva)
   const deletedTournament = await Tournament.findByIdAndDelete(cleanId);
   
-  // 3. Se non ha cancellato nulla, significa che l'ID non esisteva nel DB
   if (!deletedTournament) {
     throw new Error('TOURNAMENT_NOT_FOUND');
   }
-
-  console.log("✅ Servizio: Torneo e match eliminati con successo dal DB!");
   return { message: 'Torneo e match associati eliminati con successo' };
 };

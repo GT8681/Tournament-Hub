@@ -9,7 +9,7 @@ const TeamSchema = new mongoose.Schema({
     default: 'https://via.placeholder.com/150'
   },
 
-  // 🔥 FONDAMENTALE: Ogni squadra deve memorizzare a quale torneo appartiene!
+
   tournamentId: { type: mongoose.Schema.Types.ObjectId, ref: 'Tournament', required: true }
 }, { timestamps: true });
 

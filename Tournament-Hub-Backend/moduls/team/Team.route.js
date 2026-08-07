@@ -7,7 +7,7 @@ router.route('/')
   .post(createTeam)   // POST /api/teams -> Crea
   .get(getAllTeams)   // GET /api/teams  -> Leggi tutte
  
-  // Prova a scriverlo senza verifyToken per vedere se si riaccende!
+
 router.get('/tournament/:tournamentId', getTeamsByTournament);
 
 module.exports = router;

@@ -29,7 +29,7 @@ exports.login = async (req, res) => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      // ⬅️ Cambiamo questo messaggio per essere super chiari!
+      
       return res.status(404).json({ message: 'Questa e-mail non è registrata nei nostri sistemi.' });
     }
 
